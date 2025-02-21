@@ -77,7 +77,6 @@ python render.py $OUTPUT_PATH --eval_fps
     - `python eval.py $OUTPUT_PATH`
 - Render fly-through video:
     - `python render_fly_through.py $OUTPUT_PATH`
-    - <video controls src="https://github.com/svraster/svraster.github.io/raw/refs/heads/main/videos/fly_through_garden_small.mp4" title="fly_through_garden_small" style="max-width: 656px"></video>
 
 ### Interactive viewer
 ```bash
