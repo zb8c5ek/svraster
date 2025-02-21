@@ -2,11 +2,11 @@
 
 ![teaser](./asset/teaser.jpg)
 
-### [Paper](https://arxiv.org/abs/2412.04459) | [Project page](https://svraster.github.io) | [jupyter notebooks](./notebooks/)
+### [Paper](https://svraster.github.io/SVRaster.pdf) | [Paper (small)](https://svraster.github.io/SVRaster_small.pdf) | [Project page](https://svraster.github.io) | [jupyter notebooks](./notebooks/)
 
 <details>
 <summary>Paper abstract</summary>
-We propose an efficient radiance field rendering algorithm that incorporates a rasterization process on adaptive sparse voxels without neural networks or 3D Gaussians. There are two key contributions coupled with the proposed system. The first is to adaptively and explicitly allocate sparse voxels to different levels of detail within scenes, faithfully reproducing scene details with $65536^3$ grid resolution while achieving high rendering frame rates. Second, we customize a rasterizer for efficient adaptive sparse voxels rendering. We render voxels in the correct depth order by using ray direction-dependent Morton ordering, which avoids the well-known popping artifact found in Gaussian splatting. Our method improves the previous neural-free voxel model by over 4db PSNR and more than 10x FPS speedup, achieving state-of-the-art comparable novel-view synthesis results. Additionally, our voxel representation is seamlessly compatible with grid-based 3D processing techniques such as Volume Fusion, Voxel Pooling, and Marching Cubes, enabling a wide range of future extensions and applications.
+We propose an efficient radiance field rendering algorithm that incorporates a rasterization process on adaptive sparse voxels without neural networks or 3D Gaussians. There are two key contributions coupled with the proposed system. The first is to adaptively and explicitly allocate sparse voxels to different levels of detail within scenes, faithfully reproducing scene details with 65536^3 grid resolution while achieving high rendering frame rates. Second, we customize a rasterizer for efficient adaptive sparse voxels rendering. We render voxels in the correct depth order by using ray direction-dependent Morton ordering, which avoids the well-known popping artifact found in Gaussian splatting. Our method improves the previous neural-free voxel model by over 4db PSNR and more than 10x FPS speedup, achieving state-of-the-art comparable novel-view synthesis results. Additionally, our voxel representation is seamlessly compatible with grid-based 3D processing techniques such as Volume Fusion, Voxel Pooling, and Marching Cubes, enabling a wide range of future extensions and applications.
 </details>
 
 
@@ -42,7 +42,7 @@ The configuration is defined by the following three, the later overwrites the fo
 - `--cfg_files`: Sepcify a list of config files, the later overwrites the former. Some examples are under `cfg/`.
 - command line: Any field defined in `src/config.py` can be overwritten through command line. For instances: `--data_device cpu`, `--subdivide_save_gpu`.
 
-Like InstantNGP and other NeRF variants, defining a proper main scene bounding box is crucial to quality and processing time. The main scene bound is defined for the main 3D region of interest. There are another `--outside_level` (default 5) Octree levels for the background region. The default main scene bound heuristic may work well in many cases but you can manually tweak them by the following:
+Like InstantNGP and other NeRF variants, defining a proper main scene bounding box is crucial to quality and processing time. Note that the main scene bound is defined for the main 3D region of interest. There are another `--outside_level` (default 5) Octree levels for the background region. The default main scene bound heuristic may work well in many cases but you can manually tweak them for a better results or covering new type of capturing trajectory:
 - `--bound_mode`:
     - `default`
         - Use the suggested bbox if given by dataset. Otherwise, it automatically chose from `forward` or `camera_median` modes.
@@ -54,9 +54,9 @@ Like InstantNGP and other NeRF variants, defining a proper main scene bounding b
         - Assume [LLFF](https://github.com/Fyusion/LLFF?tab=readme-ov-file#local-light-field-fusion) forward-facing capturing. See `src/utils/bounding_utils.py` for detail heuristic.
     - `pcd`
         - Use COLMAP sparse points to compute a scene bound. See `src/utils/bounding_utils.py` for detail heuristic.
-- `--bound_scale`: re-scale the main scene bound.
+- `--bound_scale`: scaling the main scene bound (default 1).
 
-For object centric scenes with background masked out, use `--white_background` or `--black_background` to specify the background color.
+For scenes with background masked out, use `--white_background` or `--black_background` to specify the background color.
 
 Other hyperparameter suggestions:
 - `--lambda_normal_dmean 0.001 --lambda_normal_dmed 0.001` for a better geometry.
@@ -77,6 +77,7 @@ python render.py $OUTPUT_PATH --eval_fps
     - `python eval.py $OUTPUT_PATH`
 - Render fly-through video:
     - `python render_fly_through.py $OUTPUT_PATH`
+    - <video controls src="https://github.com/svraster/svraster.github.io/raw/refs/heads/main/videos/fly_through_garden_small.mp4" title="fly_through_garden_small" style="max-width: 656px"></video>
 
 ### Interactive viewer
 ```bash
@@ -95,11 +96,11 @@ python extract_mesh.py $OUTPUT_PATH
 ### Fusing 2D modality
 We can fuse 2D vision foundation feature or sementic segmentation results into voxels easily.
 - [demo_segformer.ipynb](./notebooks/demo_segformer.ipynb)
-    - Fusing NV Segformer semantic prediction into voxels.
+    - Fusing Segformer semantic prediction into voxels.
     - ![fusing_segformer](asset/fusing_segformer.jpg)
 - [demo_vfm_radio.ipynb](./notebooks/demo_vfm_radio.ipynb)
     - Voxel pooling.
-    - Fusing high-dimensional NV RADIO feature into the pooled voxels.
+    - Fusing high-dimensional RADIOv2.5 feature into the pooled voxels.
     - ![fusing_radio](asset/fusing_radio.jpg)
 
 
