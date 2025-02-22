@@ -23,14 +23,14 @@ class SVInOut:
         state_dict = {
             'active_sh_degree': self.active_sh_degree,
             'ss': self.ss,
-            'scene_center': self.scene_center.data,
-            'inside_extent': self.inside_extent.data,
-            'scene_extent': self.scene_extent.data,
-            'octpath': self.octpath.data,
-            'octlevel': self.octlevel.data,
-            '_geo_grid_pts': self._geo_grid_pts.data,
-            '_sh0': self._sh0.data,
-            '_shs': self._shs.data,
+            'scene_center': self.scene_center.data.contiguous(),
+            'inside_extent': self.inside_extent.data.contiguous(),
+            'scene_extent': self.scene_extent.data.contiguous(),
+            'octpath': self.octpath.data.contiguous(),
+            'octlevel': self.octlevel.data.contiguous(),
+            '_geo_grid_pts': self._geo_grid_pts.data.contiguous(),
+            '_sh0': self._sh0.data.contiguous(),
+            '_shs': self._shs.data.contiguous(),
         }
 
         if quantize:
@@ -118,10 +118,10 @@ def dequantize_state_dict(state_dict):
 
 def quantization(src_tensor, max_iter=10):
     src_shape = src_tensor.shape
-    src_vals = src_tensor.flatten()
+    src_vals = src_tensor.flatten().contiguous()
     order = src_vals.argsort()
-    quantile_ind = (torch.linspace(0,1,257) * (len(order) - 1)).long()
-    codebook = src_vals[order[quantile_ind]]
+    quantile_ind = (torch.linspace(0,1,257) * (len(order) - 1)).long().clamp_(0, len(order)-1)
+    codebook = src_vals[order[quantile_ind]].contiguous()
     codebook[0] = -torch.inf
     ind = torch.searchsorted(codebook, src_vals)
 
@@ -131,6 +131,7 @@ def quantization(src_tensor, max_iter=10):
     diff_l = (src_vals - codebook[ind-1]).abs()
     diff_m = (src_vals - codebook[ind]).abs()
     ind = ind - 1 + (diff_m < diff_l)
+    ind.clamp_(0, 255)
 
     for _ in range(max_iter):
         codebook = torch.zeros_like(codebook).index_reduce_(
