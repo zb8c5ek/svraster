@@ -370,7 +370,7 @@ def training(args):
                 test_iterations=args.test_iterations)
 
             if iteration in args.checkpoint_iterations or iteration == cfg.procedure.n_iter:
-                voxel_model.save_iteration(iteration)
+                voxel_model.save_iteration(iteration, quantize=args.save_quantized)
                 if args.save_optimizer:
                     voxel_model.optimizer_save_iteration(iteration)
                 print(f"[SAVE] path={voxel_model.latest_save_path}")
@@ -520,6 +520,7 @@ if __name__ == "__main__":
     parser.add_argument("--load_iteration", type=int, default=None)
     parser.add_argument("--load_optimizer", action='store_true')
     parser.add_argument("--save_optimizer", action='store_true')
+    parser.add_argument("--save_quantized", action='store_true')
     args, cmd_lst = parser.parse_known_args()
 
     # Update config from files and command line
