@@ -188,6 +188,7 @@ def instantiate_a_camera(cam_info, cfg_data, dataset_downscale):
                   fovx=cam_info.fovx, fovy=cam_info.fovy,
                   cx_p=cam_info.cx_p, cy_p=cam_info.cy_p,
                   image=gt_image, mask=mask, depth=depth,
+                  sparse_uv=cam_info.sparse_uv, sparse_depth=cam_info.sparse_depth,
                   image_name=cam_info.image_name)
 
 

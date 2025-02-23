@@ -28,10 +28,11 @@ from src.utils.camera_utils import focal2fov
 from .reader_scene_info import CameraInfo, PointCloud, SceneInfo
 from .colmap_loader import read_extrinsics_text, read_intrinsics_text, \
                            read_extrinsics_binary, read_intrinsics_binary, \
+                           read_points3D_binary, read_points3D_text, \
                            read_colmap_ply, qvec2rotmat
 
 
-def read_cameras_from_colmap(cam_extrinsics, cam_intrinsics, images_folder, depth_paths):
+def read_cameras_from_colmap(cam_extrinsics, cam_intrinsics, images_folder, points, points_idmap, depth_paths):
 
     print(f"images_folder={images_folder}")
 
@@ -87,6 +88,18 @@ def read_cameras_from_colmap(cam_extrinsics, cam_intrinsics, images_folder, dept
             depth_path = ""
             depth = None
 
+        # Load sparse depth
+        pt_idx = extr.point3D_ids
+        pt_mask = (pt_idx != -1) & (points_idmap[pt_idx] != -1)
+        sparse_pt = points[points_idmap[pt_idx[pt_mask]]]
+        sparse_uv = extr.xys[pt_mask] / [intr.width, intr.height]
+        sparse_uv = sparse_uv * 2 - 1  # [0, 1] to [-1, 1]
+        cam_pose = np.linalg.inv(w2c)
+        cam_xyz = cam_pose[:3, 3]
+        cam_lookat = cam_pose[:3, 2]
+        sparse_depth = (sparse_pt - cam_xyz) @ cam_lookat
+
+        # Pack eveything
         cam_info = CameraInfo(
                 image_name=image_name,
                 w2c=w2c,
@@ -95,6 +108,7 @@ def read_cameras_from_colmap(cam_extrinsics, cam_intrinsics, images_folder, dept
                 cx_p=None, cy_p=None,
                 image=image, image_path=image_path,
                 depth=depth, depth_path=depth_path,
+                sparse_uv=sparse_uv, sparse_depth=sparse_depth,
                 mask=mask, mask_path=mask_path)
         cam_infos.append(cam_info)
     return cam_infos
@@ -108,6 +122,7 @@ def read_colmap_dataset(path, images, eval, test_every=8, depth_paths=""):
     if not os.path.exists(sparse_path):
         raise Exception("Can not find COLMAP outcome.")
 
+    # Parse cameras
     try:
         cameras_extrinsic_file = os.path.join(sparse_path, "images.bin")
         cameras_intrinsic_file = os.path.join(sparse_path, "cameras.bin")
@@ -119,12 +134,26 @@ def read_colmap_dataset(path, images, eval, test_every=8, depth_paths=""):
         cam_extrinsics = read_extrinsics_text(cameras_extrinsic_file)
         cam_intrinsics = read_intrinsics_text(cameras_intrinsic_file)
 
+    # Parse sparse points
+    points, colors, normals, ply_path = read_colmap_ply(sparse_path)
+    point_cloud = PointCloud(
+        points=points,
+        colors=colors,
+        normals=normals,
+        ply_path=ply_path)
+
+    pointsID = np.load(os.path.join(sparse_path, "pointsID.npy"))
+    points_idmap = np.full([pointsID.max()+2], -1, dtype=np.int32)
+    points_idmap[pointsID] = np.arange(len(points))
+
     # Load cameras
     image_dir = "images" if images is None else images
     cam_infos = read_cameras_from_colmap(
         cam_extrinsics=cam_extrinsics,
         cam_intrinsics=cam_intrinsics,
         images_folder=os.path.join(path, image_dir),
+        points=points,
+        points_idmap=points_idmap,
         depth_paths=depth_paths)
 
     if eval:
@@ -147,14 +176,6 @@ def read_colmap_dataset(path, images, eval, test_every=8, depth_paths=""):
         ])
     else:
         suggested_bounding = None
-
-    # Parse sparse points
-    points, colors, normals, ply_path = read_colmap_ply(sparse_path)
-    point_cloud = PointCloud(
-        points=points,
-        colors=colors,
-        normals=normals,
-        ply_path=ply_path)
 
     # Pack scene info
     scene_info = SceneInfo(

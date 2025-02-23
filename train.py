@@ -117,6 +117,8 @@ def training(args):
         'use_auto_exposure': cfg.auto_exposure.enable,
     }
 
+    sparse_depth_loss = loss_utils.SparseDepthLoss(
+        iter_end=cfg.regularizer.sparse_depth_until)
     nd_loss = loss_utils.NormalDepthConsistencyLoss(
         iter_from=cfg.regularizer.n_dmean_from,
         iter_end=cfg.regularizer.n_dmean_end,
@@ -146,11 +148,12 @@ def training(args):
             elif 'ss' in tr_render_opt:
                 tr_render_opt.pop('ss')  # Use default ss
 
+        need_sparse_depth = cfg.regularizer.lambda_sparse_depth > 0 and sparse_depth_loss.is_active(iteration)
         need_nd_loss = cfg.regularizer.lambda_normal_dmean > 0 and nd_loss.is_active(iteration)
         need_nmed_loss = cfg.regularizer.lambda_normal_dmed > 0 and nmed_loss.is_active(iteration)
-        tr_render_opt['output_T'] = cfg.regularizer.lambda_T_concen > 0 or cfg.regularizer.lambda_T_inside > 0 or cfg.regularizer.lambda_mask > 0 or need_nd_loss
+        tr_render_opt['output_T'] = cfg.regularizer.lambda_T_concen > 0 or cfg.regularizer.lambda_T_inside > 0 or cfg.regularizer.lambda_mask > 0 or need_sparse_depth or need_nd_loss
         tr_render_opt['output_normal'] = need_nd_loss or need_nmed_loss
-        tr_render_opt['output_depth'] = need_nd_loss or need_nmed_loss
+        tr_render_opt['output_depth'] = need_sparse_depth or need_nd_loss or need_nmed_loss
 
         if iteration >= cfg.regularizer.dist_from and cfg.regularizer.lambda_dist and 'lambda_dist' not in tr_render_opt:
             tr_render_opt['lambda_dist'] = cfg.regularizer.lambda_dist
@@ -184,6 +187,9 @@ def training(args):
         else:
             photo_loss = mse
         loss = cfg.regularizer.lambda_photo * photo_loss
+
+        if need_sparse_depth:
+            loss += cfg.regularizer.lambda_sparse_depth * sparse_depth_loss(cam, render_pkg)
 
         if cfg.regularizer.lambda_mask:
             gt_T = 1 - cam.mask.cuda()

@@ -105,6 +105,7 @@ def read_points3D_text(path):
     xyzs = np.empty((num_points, 3))
     rgbs = np.empty((num_points, 3))
     errors = np.empty((num_points, 1))
+    points_id = np.empty((num_points), dtype=np.int32)
     count = 0
     with open(path, "r") as fid:
         while True:
@@ -120,9 +121,10 @@ def read_points3D_text(path):
                 xyzs[count] = xyz
                 rgbs[count] = rgb
                 errors[count] = error
+                points_id[count] = elems[0]
                 count += 1
 
-    return xyzs, rgbs, errors
+    return xyzs, rgbs, errors, points_id
 
 def read_points3D_binary(path_to_model_file):
     """
@@ -138,6 +140,7 @@ def read_points3D_binary(path_to_model_file):
         xyzs = np.empty((num_points, 3))
         rgbs = np.empty((num_points, 3))
         errors = np.empty((num_points, 1))
+        points_id = np.empty((num_points), dtype=np.int32)
 
         for p_id in range(num_points):
             binary_point_line_properties = read_next_bytes(
@@ -153,7 +156,8 @@ def read_points3D_binary(path_to_model_file):
             xyzs[p_id] = xyz
             rgbs[p_id] = rgb
             errors[p_id] = error
-    return xyzs, rgbs, errors
+            points_id[p_id] = binary_point_line_properties[0]
+    return xyzs, rgbs, errors, points_id
 
 def read_intrinsics_text(path):
     """
@@ -322,14 +326,16 @@ def storePly(path, xyz, rgb):
 
 def read_colmap_ply(path):
     ply_path = os.path.join(path, "points3D.ply")
+    pid_path = os.path.join(path, "pointsID.npy")
     bin_path = os.path.join(path, "points3D.bin")
     txt_path = os.path.join(path, "points3D.txt")
-    if not os.path.exists(ply_path):
+    if not os.path.exists(ply_path) or not os.path.exists(pid_path):
         print("Converting point3d.bin to .ply, will happen only the first time you open the scene.")
         try:
-            xyz, rgb, _ = read_points3D_binary(bin_path)
+            xyz, rgb, err, points_id = read_points3D_binary(bin_path)
         except:
-            xyz, rgb, _ = read_points3D_text(txt_path)
+            xyz, rgb, err, points_id = read_points3D_text(txt_path)
         storePly(ply_path, xyz, rgb)
+        np.save(pid_path, points_id)
     positions, colors, normals = fetchPly(ply_path)
     return positions, colors, normals, ply_path

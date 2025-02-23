@@ -135,7 +135,8 @@ class Camera(CameraBase):
             self, image_name,
             w2c, fovx, fovy, cx_p, cy_p,
             near=0.02,
-            image=None, mask=None, depth=None):
+            image=None, mask=None, depth=None,
+            sparse_uv=None, sparse_depth=None):
 
         self.image_name = image_name
         self.cam_mode = 'persp'
@@ -160,6 +161,10 @@ class Camera(CameraBase):
         # Load mask and depth if there are
         self.mask = mask.cpu() if mask is not None else None
         self.depth = depth.cpu() if depth is not None else None
+
+        # Load sparse depth
+        self.sparse_uv = torch.tensor(sparse_uv, dtype=torch.float32, device="cpu")
+        self.sparse_depth = torch.tensor(sparse_depth, dtype=torch.float32, device="cpu")
 
     def to(self, device):
         self.image = self.image.to(device)

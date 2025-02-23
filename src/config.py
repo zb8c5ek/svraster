@@ -76,6 +76,10 @@ cfg.regularizer = CfgNode(dict(
     # SSIM loss
     lambda_ssim = 0.02,
 
+    # Sparse depth loss
+    lambda_sparse_depth = 0.0,
+    sparse_depth_until = 10_000,
+
     # Mask loss
     lambda_mask = 0.0,
 

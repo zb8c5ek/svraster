@@ -62,7 +62,8 @@ Other hyperparameter suggestions:
 - `--lambda_normal_dmean 0.001 --lambda_normal_dmed 0.001` for a better geometry.
 - `--lambda_T_inside 0.01` to encourage rays to stop inside the Octree. Useful for real-world scenes.
 - `--lambda_T_concen 0.1` to encourage transmittance to be either 0 or 1. Useful for object centric scenes with background masked out.
-- `--save_quantized` to apply 8 bits quantization to the saved checkpoints. It typically reduce ~70% model size with minor quality drop.
+- `--lambda_sparse_depth 0.01` to use sparse depth loss from COLMAP points. It's helpful for regions with less observed angles.
+- `--save_quantized` to apply 8 bits quantization to the saved checkpoints. It typically reduce ~70% model size with minor quality difference.
 
 ### Measuring FPS
 ```bash

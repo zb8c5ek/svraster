@@ -90,6 +90,28 @@ def exp_anneal(end_mul, iter_now, iter_from, iter_end):
     return end_mul ** now_p
 
 
+class SparseDepthLoss:
+    def __init__(self, iter_end):
+        self.iter_end = iter_end
+
+    def is_active(self, iteration):
+        return iteration <= self.iter_end
+
+    def __call__(self, cam, render_pkg):
+        assert "raw_T" in render_pkg, "Forgot to set `output_depth=True` when calling render?"
+        assert "raw_depth" in render_pkg, "Forgot to set `output_depth=True` when calling render?"
+        assert hasattr(cam, "sparse_uv") and cam.sparse_uv is not None, "No sparse points depth?"
+        assert hasattr(cam, "sparse_depth") and cam.sparse_depth is not None, "No sparse points depth?"
+        depth = render_pkg['raw_depth'][0] / (1 - render_pkg['raw_T']).clamp_min_(1e-4)
+        sparse_uv = cam.sparse_uv.cuda()
+        sparse_depth = cam.sparse_depth.cuda()
+        rend_sparse_depth = torch.nn.functional.grid_sample(
+            depth[None],
+            sparse_uv[None,None],
+            mode='bilinear', align_corners=False).squeeze()
+        return torch.nn.functional.smooth_l1_loss(rend_sparse_depth, sparse_depth)
+
+
 class NormalDepthConsistencyLoss:
     def __init__(self, iter_from, iter_end, ks, tol_deg):
         self.iter_from = iter_from
