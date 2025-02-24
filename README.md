@@ -2,7 +2,7 @@
 
 ![teaser](./asset/teaser.jpg)
 
-### [Project page](https://svraster.github.io) | [Paper](https://svraster.github.io/SVRaster.pdf) | [Paper (small)](https://svraster.github.io/SVRaster_small.pdf) | [jupyter notebooks](./notebooks/)
+### [Project page](https://svraster.github.io) | [Arxiv](https://arxiv.org/abs/2412.04459) | [jupyter notebooks](./notebooks/)
 
 <details>
 <summary>Paper abstract</summary>
