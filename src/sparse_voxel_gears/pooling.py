@@ -16,10 +16,13 @@ from src.utils import octree_utils
 
 class SVPooling:
 
-    def pooling_to_level(self, max_level):
+    def pooling_to_level(self, max_level, octpath=None, octlevel=None):
+        octpath = self.octpath if octpath is None else octpath
+        octlevel = self.octlevel if octlevel is None else octlevel
+
         num_bit_to_mask = 3 * max(0, svraster_cuda.meta.MAX_NUM_LEVELS - max_level)
-        octpath = (self.octpath >> num_bit_to_mask) << num_bit_to_mask
-        octlevel = self.octlevel.clamp_max(max_level)
+        octpath = (octpath >> num_bit_to_mask) << num_bit_to_mask
+        octlevel = octlevel.clamp_max(max_level)
         octpack, invmap = torch.stack([octpath, octlevel]).unique(sorted=True, dim=1, return_inverse=True)
         octpath, octlevel = octpack
         octlevel = octlevel.to(torch.int8)
@@ -35,10 +38,9 @@ class SVPooling:
             vox_size=vox_size,
         )
 
-    def pooling_to_rate(self, cameras, max_rate):
-
-        octpath = self.octpath.clone()
-        octlevel = self.octlevel.clone()
+    def pooling_to_rate(self, cameras, max_rate, octpath=None, octlevel=None):
+        octpath = self.octpath.clone() if octpath is None else octpath
+        octlevel = self.octlevel.clone() if octlevel is None else octlevel
         invmap = torch.arange(len(octpath), device="cuda")
 
         for _ in range(svraster_cuda.meta.MAX_NUM_LEVELS):
