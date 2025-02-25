@@ -89,29 +89,28 @@ You can then navigate the trained scenes using a web browser. Another interactiv
 Note: The FPS of the visualizer is bottleneck by streaming images via network protocal, especially when the it runs on remote server.
 
 ### Meshing
-Remember to train with `--lambda_normal_dmean 0.001 --lambda_normal_dmed 0.001` to get a better geometry.
+Remember to train with `--lambda_normal_dmean 0.001 --lambda_normal_dmed 0.001` to get a better geometry. Using sparse depth from COLMAP may also help `--lambda_sparse_depth 0.01`. After the scene optimization completed, run:
 ```bash
 python extract_mesh.py $OUTPUT_PATH
 ```
 
 ### Fusing 2D modality
-We can fuse 2D vision foundation feature or sementic segmentation results into voxels easily.
+We can fuse 2D vision foundation feature or sementic segmentation results into voxels easily and instantly. The fusion can naturally smooth out the multi-view inconsistent predictions. More video results are in the [project page](https://svraster.github.io/).
 - [demo_segformer.ipynb](./notebooks/demo_segformer.ipynb)
-    - Fusing Segformer semantic prediction into voxels.
+    - We run Segformer to estimate 2D semantic segmentation for all the training views and fuse the 2D semantic into 3D sparse voxel field.
     - ![fusing_segformer](asset/fusing_segformer.jpg)
 - [demo_vfm_radio.ipynb](./notebooks/demo_vfm_radio.ipynb)
-    - Voxel pooling.
-    - Fusing high-dimensional RADIOv2.5 feature into the pooled voxels.
+    - We do Voxel Pooling first as RADIOv2.5 feature is high-dimensional (768 dim). The fusion step is the same as for Segformer.
+    - The final fields are a coarser vision foundation model feature field and a density field in original high-resolution.
     - ![fusing_radio](asset/fusing_radio.jpg)
-
 
 ## Experiments on public dataset
 
 **Note:** Be sure to double check the following two experimental details which has non-trivial impact to the quantitative results.
-- Ground-truth downsampling: Results from the internal downsampling `--res_downscale` and preprocessed down-sampled images specified by `--images` are very different. We follow the original 3DGS to use `--images`.
-- LPIPS input scale: We follow the original 3DGS to use RGB in range of [0, 1] as default. The correct implementation should be in [-1, 1] which is reported as corrected LPIPS by `eval.py`.
+- Ground-truth downsampling: Results from (1) the internal downsampling `--res_downscale` and (2) the preprocessed down-sampled images specified by `--images` are very different. We follow the original 3DGS to use `--images`.
+- LPIPS input scale: We follow the original 3DGS to use RGB in range of [0, 1] as default. The correct implementation should be in [-1, 1] which is reported as the corrected LPIPS by `eval.py`.
 
-### Download the processed datasets
+### Download the 3rd-party processed datasets
 - Novel-view synthesis
     - [Mip-NeRF360 dataset](https://jonbarron.info/mipnerf360/)
     - [T&T and DeepBlending dataset](https://github.com/graphdeco-inria/gaussian-splatting#running)
@@ -144,7 +143,7 @@ python scripts/tnt_stat.py            output/tnt/baseline
 ## Acknowledgement
 Our method is developed on the amazing open-source codebase: [gaussian-splatting](https://github.com/graphdeco-inria/gaussian-splatting) and [diff-gaussian-rasterization](https://github.com/graphdeco-inria/diff-gaussian-rasterization).
 
-If you find our work useful in your research, please be so kind to give our a star and citing our paper.
+If you find our work useful in your research, please be so kind to give us a star and citing our paper.
 ```bibTeX
 @article{Sun2024SVR,
   title={Sparse Voxels Rasterization: Real-time High-fidelity Radiance Field Rendering},
