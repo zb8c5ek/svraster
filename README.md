@@ -84,9 +84,9 @@ python render.py $OUTPUT_PATH --eval_fps
 ```bash
 python viz.py $OUTPUT_PATH
 ```
-You can then navigate the trained scenes using a web browser. Another interactive viewer is in [example jupyter notebook](./notebooks/example.ipynb) using Kaolin.
+You can then navigate the trained scenes using a web browser. Another interactive viewer is in [example jupyter notebook](./notebooks/example.ipynb) using Kaolin. The FPS of the visualizer is bottleneck by streaming images via network protocal, especially when the it runs on remote server.
 
-Note: The FPS of the visualizer is bottleneck by streaming images via network protocal, especially when the it runs on remote server.
+https://github.com/user-attachments/assets/44f1737a-c4d3-416d-bdf1-da8b3ecad57b
 
 ### Meshing
 Remember to train with `--lambda_normal_dmean 0.001 --lambda_normal_dmed 0.001` to get a better geometry. Using sparse depth from COLMAP may also help `--lambda_sparse_depth 0.01`. After the scene optimization completed, run:
