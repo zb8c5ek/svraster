@@ -240,7 +240,7 @@ def octlayout_outside_heuristic(voxel_model, cameras, min_num, max_level, samp_m
         vox_size = vox_size[kept_idx]
         still_need_n = (min_num - len(octpath)) // 7
         still_need_n = min(len(octpath), round(still_need_n))
-        if still_need_n == 0:
+        if still_need_n <= 0:
             break
         rank = samp_rate * (octlevel.squeeze(1) < svraster_cuda.meta.MAX_NUM_LEVELS)
         subdiv_mask = (rank >= rank.sort().values[-still_need_n])
