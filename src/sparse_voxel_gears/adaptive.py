@@ -388,12 +388,15 @@ class SVAdaptive:
                 ori_vox_grid_pts_val,
                 kept_idx=kept_idx,
                 cat_tensor=subdiv_vox_grid_pts_val)
+            del ori_grid_pts, ori_vox_grid_pts_val, subdiv_vox_grid_pts_val
+            torch.cuda.empty_cache()
+
             new_param = agg_voxel_into_grid_pts(
                 new_num_grid_pts,
                 new_vox_key,
                 new_vox_val).cuda().requires_grad_()
             setattr(self, name, new_param)
-            del ori_grid_pts, ori_vox_grid_pts_val, subdiv_vox_grid_pts_val, new_vox_val
+            del new_vox_val
             torch.cuda.empty_cache()
 
             # Update optimizer
@@ -413,13 +416,16 @@ class SVAdaptive:
                     ori_vox_grid_pts_state,
                     kept_idx=kept_idx,
                     cat_tensor=subdiv_vox_grid_pts_state)
+                del ori_grid_pts_state, ori_vox_grid_pts_state, subdiv_vox_grid_pts_state
+                torch.cuda.empty_cache()
+
                 new_state = agg_voxel_into_grid_pts(
                     new_num_grid_pts,
                     new_vox_key,
                     new_vox_state)
                 state_dict[k] = new_state.cuda()
                 assert new_state.shape == new_param.shape
-                del ori_grid_pts_state, ori_vox_grid_pts_state, subdiv_vox_grid_pts_state, new_vox_state, new_state
+                del new_vox_state
                 torch.cuda.empty_cache()
             state[new_param] = state_dict
 
