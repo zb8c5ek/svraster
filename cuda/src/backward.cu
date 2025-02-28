@@ -33,7 +33,7 @@ namespace BACKWARD {
 
 // CUDA backward pass of sparse voxel rendering.
 template <bool need_depth, bool need_distortion, bool need_normal,
-          int density_mode, int n_samp>
+          int n_samp>
 __global__ void __launch_bounds__(BLOCK_X * BLOCK_Y)
 renderCUDA(
     const uint2* __restrict__ ranges,
@@ -214,16 +214,6 @@ renderCUDA(
     // For seam regularizaiton.
     int j_lst[BLOCK_SIZE];
 
-    auto act_fn =
-        (density_mode == SOFTPLUS_MODE)      ? softplus      :
-        (density_mode == EXP_LINEAR_11_MODE) ? exp_linear_11 :
-                                               relu          ;
-
-    auto act_bw_fn =
-        (density_mode == SOFTPLUS_MODE)      ? softplus_bw      :
-        (density_mode == EXP_LINEAR_11_MODE) ? exp_linear_11_bw :
-                                               relu_bw          ;
-
     // Traverse all voxels.
     for (int i = 0; i < rounds; i++, toDo -= BLOCK_SIZE)
     {
@@ -317,13 +307,13 @@ renderCUDA(
                 float d = 0.f;
                 for (int iii=0; iii<8; ++iii)
                     d += geo_params[iii] * interp_w[iii];
-                const float local_vol_int = STEP_SZ_SCALE * step_sz * act_fn(d);
+                const float local_vol_int = STEP_SZ_SCALE * step_sz * exp_linear_11(d);
                 vol_int += local_vol_int;
 
                 if (need_depth && n_samp > 1)
                     local_alphas[k] = min(MAX_ALPHA, 1.f - expf(-local_vol_int));
 
-                const float dd_dd = STEP_SZ_SCALE * step_sz * act_bw_fn(d);
+                const float dd_dd = STEP_SZ_SCALE * step_sz * exp_linear_11_bw(d);
                 for (int iii=0; iii<8; ++iii)
                 {
                     float tmp = dd_dd * interp_w[iii];
@@ -594,25 +584,14 @@ void render(
     float* dL_dvox)
 {
     const bool need_distortion = (lambda_dist > 0);
-    const auto kernel_func =
-        (density_mode == SOFTPLUS_MODE)      ?
-            ((vox_geo_mode == VOX_TRIINTERP1_MODE) ?
-                BwRendFunc(SOFTPLUS_MODE, 1) :
-            (vox_geo_mode == VOX_TRIINTERP3_MODE) ?
-                BwRendFunc(SOFTPLUS_MODE, 3) :
-                BwRendFunc(SOFTPLUS_MODE, 2)):
-        (density_mode == EXP_LINEAR_11_MODE) ?
-            ((vox_geo_mode == VOX_TRIINTERP1_MODE) ?
-                BwRendFunc(EXP_LINEAR_11_MODE, 1) :
-            (vox_geo_mode == VOX_TRIINTERP3_MODE) ?
-                BwRendFunc(EXP_LINEAR_11_MODE, 3) :
-                BwRendFunc(EXP_LINEAR_11_MODE, 2)):
 
-            ((vox_geo_mode == VOX_TRIINTERP1_MODE) ?
-                BwRendFunc(RELU_MODE, 1) :
-            (vox_geo_mode == VOX_TRIINTERP3_MODE) ?
-                BwRendFunc(RELU_MODE, 3) :
-                BwRendFunc(RELU_MODE, 2));
+    // The density_mode now is always EXP_LINEAR_11_MODE
+    const auto kernel_func =
+        (vox_geo_mode == VOX_TRIINTERP1_MODE) ?
+            BwRendFunc(1) :
+        (vox_geo_mode == VOX_TRIINTERP3_MODE) ?
+            BwRendFunc(3) :
+            BwRendFunc(2) ;
 
     kernel_func <<<tile_grid, block>>> (
         ranges,

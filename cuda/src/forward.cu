@@ -37,7 +37,7 @@ namespace FORWARD {
 
 // CUDA sparse voxel rendering.
 template <bool need_feat, bool need_depth, bool need_distortion, bool need_normal, bool track_max_w,
-          int density_mode, int n_samp>
+          int n_samp>
 __global__ void __launch_bounds__(BLOCK_X * BLOCK_Y)
 renderCUDA(
     const uint2* __restrict__ ranges,
@@ -171,11 +171,6 @@ renderCUDA(
 
     float feat[MAX_FEAT_DIM] = {0.f};
 
-    const auto act_fn =
-        (density_mode == SOFTPLUS_MODE)      ? softplus      :
-        (density_mode == EXP_LINEAR_11_MODE) ? exp_linear_11 :
-                                               relu          ;
-
     // Iterate over batches until all done or range is complete.
     for (int i = 0; i < rounds; i++, toDo -= BLOCK_SIZE)
     {
@@ -266,7 +261,7 @@ renderCUDA(
                 for (int iii=0; iii<8; ++iii)
                     d += geo_params[iii] * interp_w[iii];
 
-                const float local_vol_int = STEP_SZ_SCALE * step_sz * act_fn(d);
+                const float local_vol_int = STEP_SZ_SCALE * step_sz * exp_linear_11(d);
                 vol_int += local_vol_int;
 
                 if (need_depth && n_samp > 1)
@@ -389,7 +384,7 @@ renderCUDA(
             for (int iii=0; iii<8; ++iii)
                 d += geo_params[iii] * interp_w[iii];
 
-            const float vol_int = STEP_SZ_SCALE * step_sz * act_fn(d);
+            const float vol_int = STEP_SZ_SCALE * step_sz * exp_linear_11(d);
 
             D_med_T *= expf(-vol_int);
         }
@@ -541,25 +536,13 @@ void render(
     const bool need_feat = (feat_dim > 0);
     const bool track_max_w = (max_w != nullptr);
 
+    // The density_mode now is always EXP_LINEAR_11_MODE
     const auto kernel_func =
-        (density_mode == SOFTPLUS_MODE)      ?
-            ((vox_geo_mode == VOX_TRIINTERP1_MODE) ?
-                FwRendFunc(SOFTPLUS_MODE, 1) :
-            (vox_geo_mode == VOX_TRIINTERP3_MODE) ?
-                FwRendFunc(SOFTPLUS_MODE, 3) :
-                FwRendFunc(SOFTPLUS_MODE, 2)):
-        (density_mode == EXP_LINEAR_11_MODE) ?
-            ((vox_geo_mode == VOX_TRIINTERP1_MODE) ?
-                FwRendFunc(EXP_LINEAR_11_MODE, 1) :
-            (vox_geo_mode == VOX_TRIINTERP3_MODE) ?
-                FwRendFunc(EXP_LINEAR_11_MODE, 3) :
-                FwRendFunc(EXP_LINEAR_11_MODE, 2)):
-
-            ((vox_geo_mode == VOX_TRIINTERP1_MODE) ?
-                FwRendFunc(RELU_MODE, 1) :
-            (vox_geo_mode == VOX_TRIINTERP3_MODE) ?
-                FwRendFunc(RELU_MODE, 3) :
-                FwRendFunc(RELU_MODE, 2));
+        (vox_geo_mode == VOX_TRIINTERP1_MODE) ?
+            FwRendFunc(1) :
+        (vox_geo_mode == VOX_TRIINTERP3_MODE) ?
+            FwRendFunc(3) :
+            FwRendFunc(2) ;
 
     kernel_func <<<tile_grid, block>>> (
         ranges,

@@ -56,9 +56,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.attr("VOX_TRIINTERP1_MODE") = pybind11::int_(VOX_TRIINTERP1_MODE);
     m.attr("VOX_TRIINTERP3_MODE") = pybind11::int_(VOX_TRIINTERP3_MODE);
 
-    m.attr("SOFTPLUS_MODE") = pybind11::int_(SOFTPLUS_MODE);
     m.attr("EXP_LINEAR_11_MODE") = pybind11::int_(EXP_LINEAR_11_MODE);
-    m.attr("RELU_MODE") = pybind11::int_(RELU_MODE);
 
     m.attr("CAM_PERSP") = pybind11::int_(CAM_PERSP);
     m.attr("CAM_ORTHO") = pybind11::int_(CAM_ORTHO);
