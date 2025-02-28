@@ -213,10 +213,11 @@ def training(args):
         # Grid-level regularization
         grid_reg_interval = iteration >= cfg.regularizer.tv_from and iteration <= cfg.regularizer.tv_until
         if cfg.regularizer.lambda_tv_density and grid_reg_interval:
+            lambda_tv_mult = cfg.regularizer.tv_decay_mult ** (iteration // cfg.regularizer.tv_decay_every)
             svraster_cuda.grid_loss_bw.total_variation(
                 grid_pts=voxel_model._geo_grid_pts,
                 vox_key=voxel_model.vox_key,
-                weight=cfg.regularizer.lambda_tv_density,
+                weight=cfg.regularizer.lambda_tv_density * lambda_tv_mult,
                 vox_size_inv=voxel_model.vox_size_inv,
                 no_tv_s=True,
                 tv_sparse=cfg.regularizer.tv_sparse,

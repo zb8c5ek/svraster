@@ -112,6 +112,8 @@ cfg.regularizer = CfgNode(dict(
     lambda_tv_density = 1e-10,
     tv_from = 0,
     tv_until = 10000,
+    tv_decay_every = 1000,
+    tv_decay_mult = 1.0,
     tv_sparse = False,
 
     # Data augmentation
