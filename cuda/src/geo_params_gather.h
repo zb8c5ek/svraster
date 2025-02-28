@@ -27,6 +27,17 @@ torch::Tensor gather_triinterp_geo_params_bw(
     const int num_grid_pts,
     const torch::Tensor& dL_dgeo_params);
 
+torch::Tensor gather_triinterp_feat_params(
+    const torch::Tensor& vox_key,
+    const torch::Tensor& care_idx,
+    const torch::Tensor& grid_pts);
+
+torch::Tensor gather_triinterp_feat_params_bw(
+    const torch::Tensor& vox_key,
+    const torch::Tensor& care_idx,
+    const int num_grid_pts,
+    const torch::Tensor& dL_dfeat_params);
+
 }
 
 #endif

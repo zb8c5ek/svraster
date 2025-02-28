@@ -389,6 +389,35 @@ class GatherGeoParams(torch.autograd.Function):
         return None, None, None, None, dL_dgrid_pts
 
 
+class GatherFeatParams(torch.autograd.Function):
+    @staticmethod
+    def forward(
+        ctx,
+        vox_key,
+        care_idx,
+        grid_pts,
+    ):
+        assert len(vox_key.shape) == 2 and vox_key.shape[1] == 8
+        assert len(care_idx.shape) == 1
+        assert len(grid_pts.shape) == 2
+
+        feat_params = _C.gather_triinterp_feat_params(vox_key, care_idx, grid_pts)
+
+        ctx.num_grid_pts = len(grid_pts)
+        ctx.save_for_backward(vox_key, care_idx)
+        return feat_params
+
+    @staticmethod
+    def backward(ctx, dL_dfeat_params):
+        # Restore necessary values from context
+        num_grid_pts = ctx.num_grid_pts
+        vox_key, care_idx = ctx.saved_tensors
+
+        dL_dgrid_pts = _C.gather_triinterp_feat_params_bw(vox_key, care_idx, num_grid_pts, dL_dfeat_params)
+
+        return None, None, dL_dgrid_pts
+
+
 def mark_n_duplicates(
         image_width, image_height,
         tanfovx, tanfovy,

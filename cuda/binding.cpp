@@ -30,6 +30,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
 
     m.def("gather_triinterp_geo_params", &GEO_PARAMS_GATHER::gather_triinterp_geo_params);
     m.def("gather_triinterp_geo_params_bw", &GEO_PARAMS_GATHER::gather_triinterp_geo_params_bw);
+    m.def("gather_triinterp_feat_params", &GEO_PARAMS_GATHER::gather_triinterp_feat_params);
+    m.def("gather_triinterp_feat_params_bw", &GEO_PARAMS_GATHER::gather_triinterp_feat_params_bw);
 
     m.def("sh_compute", &SH_COMPUTE::sh_compute);
     m.def("sh_compute_bw", &SH_COMPUTE::sh_compute_bw);
