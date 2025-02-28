@@ -10,6 +10,8 @@
 #
 
 import os
+import json
+import natsort
 import numpy as np
 import collections
 import struct
@@ -324,18 +326,39 @@ def storePly(path, xyz, rgb):
     ply_data = PlyData([vertex_element])
     ply_data.write(path)
 
-def read_colmap_ply(path):
+def read_colmap_ply(path, cam_extrinsics):
     ply_path = os.path.join(path, "points3D.ply")
-    pid_path = os.path.join(path, "pointsID.npy")
+    cor_path = os.path.join(path, "points_correspondent.json")
     bin_path = os.path.join(path, "points3D.bin")
     txt_path = os.path.join(path, "points3D.txt")
-    if not os.path.exists(ply_path) or not os.path.exists(pid_path):
+    if not os.path.exists(ply_path) or not os.path.exists(cor_path):
         print("Converting point3d.bin to .ply, will happen only the first time you open the scene.")
         try:
             xyz, rgb, err, points_id = read_points3D_binary(bin_path)
         except:
             xyz, rgb, err, points_id = read_points3D_text(txt_path)
         storePly(ply_path, xyz, rgb)
-        np.save(pid_path, points_id)
+
+        # Parse correspondent
+        points_idmap = np.full([points_id.max()+2], -1, dtype=np.int32)
+        points_idmap[points_id] = np.arange(len(xyz))
+
+        keys = natsort.natsorted(
+            cam_extrinsics.keys(),
+            key = lambda i : cam_extrinsics[i].name)
+
+        correspondent = {}
+        for idx, key in enumerate(keys):
+            extr = cam_extrinsics[key]
+            pt_idx = extr.point3D_ids
+            pt_mask = (pt_idx != -1) & (points_idmap[pt_idx] != -1)
+            correspondent[extr.name] = points_idmap[pt_idx[pt_mask]].tolist()
+        with open(cor_path, 'w') as f:
+            json.dump(correspondent, f)
+
+    # Load the processed file
     positions, colors, normals = fetchPly(ply_path)
-    return positions, colors, normals, ply_path
+    with open(cor_path) as f:
+        correspondent = json.load(f)
+
+    return positions, colors, normals, ply_path, correspondent

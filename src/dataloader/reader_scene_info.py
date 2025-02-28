@@ -35,8 +35,7 @@ class CameraInfo(NamedTuple):
     mask: PIL.Image.Image = None
     mask_path: str = ""
 
-    sparse_uv: np.array = None
-    sparse_depth: np.array = None
+    sparse_pt: np.array = None
 
 
 class PointCloud(NamedTuple):

@@ -100,15 +100,15 @@ class SparseDepthLoss:
     def __call__(self, cam, render_pkg):
         assert "raw_T" in render_pkg, "Forgot to set `output_depth=True` when calling render?"
         assert "raw_depth" in render_pkg, "Forgot to set `output_depth=True` when calling render?"
-        assert hasattr(cam, "sparse_uv") and cam.sparse_uv is not None, "No sparse points depth?"
-        assert hasattr(cam, "sparse_depth") and cam.sparse_depth is not None, "No sparse points depth?"
+        assert hasattr(cam, "sparse_pt") and cam.sparse_pt is not None, "No sparse points depth?"
         depth = render_pkg['raw_depth'][0] / (1 - render_pkg['raw_T']).clamp_min_(1e-4)
-        sparse_uv = cam.sparse_uv.cuda()
-        sparse_depth = cam.sparse_depth.cuda()
+        sparse_pt = cam.sparse_pt.cuda()
+        sparse_uv, sparse_depth = cam.project(sparse_pt, return_depth=True)
         rend_sparse_depth = torch.nn.functional.grid_sample(
             depth[None],
             sparse_uv[None,None],
             mode='bilinear', align_corners=False).squeeze()
+        sparse_depth = sparse_depth.squeeze(1)
         return torch.nn.functional.smooth_l1_loss(rend_sparse_depth, sparse_depth)
 
 

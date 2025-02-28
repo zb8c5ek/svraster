@@ -24,6 +24,7 @@ from PIL import Image
 from pathlib import Path
 
 from src.utils.camera_utils import fov2focal, focal2fov
+from .colmap_loader import fetchPly
 from .reader_scene_info import CameraInfo, PointCloud, SceneInfo
 
 
@@ -37,7 +38,7 @@ def parse_principle_point(info, is_cx):
     return None
 
 
-def read_a_camera(frame, fovx, fovy, cx_p, cy_p, path, extension):
+def read_a_camera(frame, fovx, fovy, cx_p, cy_p, path, extension, points=None, correspondent=None):
     # Guess the rgb image path and load image
     image_path = os.path.join(path, frame["file_path"] + extension)
     if not os.path.exists(image_path):
@@ -79,6 +80,10 @@ def read_a_camera(frame, fovx, fovy, cx_p, cy_p, path, extension):
         mask_path = ""
         mask = None
 
+    # Load sparse point
+    key = f"{image_name}.{extension}"
+    sparse_pt = points[correspondent[key]]
+
     return CameraInfo(
         image_name=image_name,
         w2c=w2c,
@@ -88,9 +93,10 @@ def read_a_camera(frame, fovx, fovy, cx_p, cy_p, path, extension):
         image=image, image_path=image_path,
         depth=depth, depth_path=depth_path,
         mask=mask, mask_path=mask_path,
+        sparse_pt=sparse_pt,
     )
 
-def read_cameras_from_json(path, transformsfile, extension=".png"):
+def read_cameras_from_json(path, transformsfile, extension=".png", points=None, correspondent=None):
 
     with open(os.path.join(path, transformsfile)) as json_file:
         contents = json.load(json_file)
@@ -102,21 +108,43 @@ def read_cameras_from_json(path, transformsfile, extension=".png"):
     frames = contents["frames"]
 
     cam_infos = [
-        read_a_camera(frame, fovx, fovy, cx_p, cy_p, path, extension)
+        read_a_camera(frame, fovx, fovy, cx_p, cy_p, path, extension, points, correspondent)
         for idx, frame in enumerate(frames)]
 
     return cam_infos
 
 def read_nerf_dataset(path, extension, test_every, eval):
+    # Read SfM sparse points if there is
+    point_cloud = None
+    correspondent = None
+
+    ply_path = os.path.join(path, "points3D.ply")
+    if os.path.exists(ply_path):
+        points, colors, normals = fetchPly(ply_path)
+        point_cloud = PointCloud(
+            points=points,
+            colors=colors,
+            normals=normals,
+            ply_path=ply_path)
+
+    cor_path = os.path.join(path, "points_correspondent.json")
+    if os.path.exists(cor_path):
+        assert point_cloud is not None
+        with open(cor_path) as f:
+            correspondent = json.load(f)
+
     # Load train/test camera info
     if os.path.exists(os.path.join(path, "transforms_train.json")):
-        train_cam_infos = read_cameras_from_json(path, "transforms_train.json", extension)
-        test_cam_infos = read_cameras_from_json(path, "transforms_test.json", extension)
+        train_cam_infos = read_cameras_from_json(
+            path, "transforms_train.json", extension, points, correspondent)
+        test_cam_infos = read_cameras_from_json(
+            path, "transforms_test.json", extension, points, correspondent)
         if not eval:
             train_cam_infos.extend(test_cam_infos)
             test_cam_infos = []
     else:
-        train_cam_infos = read_cameras_from_json(path, "transforms.json", extension)
+        train_cam_infos = read_cameras_from_json(
+            path, "transforms.json", extension, points, correspondent)
         test_cam_infos = []
         if eval:
             test_cam_infos = [c for idx, c in enumerate(train_cam_infos) if idx % test_every == 0]
@@ -145,5 +173,5 @@ def read_nerf_dataset(path, extension, test_every, eval):
         train_cam_infos=train_cam_infos,
         test_cam_infos=test_cam_infos,
         suggested_bounding=suggested_bounding,
-        point_cloud=None)
+        point_cloud=point_cloud)
     return scene_info

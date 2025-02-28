@@ -86,16 +86,19 @@ class CameraBase:
         rd = rd.to(device if device is None else self.c2w.device)
         return rd
 
-    def project(self, pts):
+    def project(self, pts, return_depth=False):
         # Return normalized image coordinate in [-1, 1]
         cam_pts = pts @ self.w2c[:3, :3].T + self.w2c[:3, 3]
-        cam_uv = cam_pts[:, :2] / cam_pts[:, [2]]
+        depth = cam_pts[:, [2]]
+        cam_uv = cam_pts[:, :2] / depth
         scale_x = 1 / self.tanfovx
         scale_y = 1 / self.tanfovy
         shift_x = 2 * self.cx_p - 1
         shift_y = 2 * self.cy_p - 1
         cam_uv[:, 0] = cam_uv[:, 0] * scale_x + shift_x
         cam_uv[:, 1] = cam_uv[:, 1] * scale_y + shift_y
+        if return_depth:
+            return cam_uv, depth
         return cam_uv
 
     def depth2pts(self, depth):
@@ -136,7 +139,7 @@ class Camera(CameraBase):
             w2c, fovx, fovy, cx_p, cy_p,
             near=0.02,
             image=None, mask=None, depth=None,
-            sparse_uv=None, sparse_depth=None):
+            sparse_pt=None):
 
         self.image_name = image_name
         self.cam_mode = 'persp'
@@ -163,8 +166,10 @@ class Camera(CameraBase):
         self.depth = depth.cpu() if depth is not None else None
 
         # Load sparse depth
-        self.sparse_uv = torch.tensor(sparse_uv, dtype=torch.float32, device="cpu")
-        self.sparse_depth = torch.tensor(sparse_depth, dtype=torch.float32, device="cpu")
+        if sparse_pt is not None:
+            self.sparse_pt = torch.tensor(sparse_pt, dtype=torch.float32, device="cpu")
+        else:
+            self.sparse_pt = None
 
     def to(self, device):
         self.image = self.image.to(device)
