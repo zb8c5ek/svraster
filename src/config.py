@@ -92,6 +92,10 @@ cfg.regularizer = CfgNode(dict(
     # Per-point rgb loss
     lambda_R_concen = 0.01,
 
+    # Geometric regularization
+    lambda_ascending = 0.0,
+    ascending_from = 0,
+
     # Distortion loss (encourage distribution concentration on ray)
     lambda_dist = 0.1,
     dist_from = 10000,

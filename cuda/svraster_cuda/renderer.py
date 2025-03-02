@@ -31,8 +31,8 @@ class RasterSettings(NamedTuple):
     need_depth: bool = False
     need_normal: bool = False
     track_max_w: bool = False
-    lambda_N_concen: float = 0
     lambda_R_concen: float = 0
+    lambda_ascending: float = 0
     lambda_dist: float = 0
     # Optional gt color for color concnetration loss in backward pass.
     gt_color: torch.Tensor = torch.empty(0)
@@ -252,9 +252,9 @@ class _RasterizeVoxels(torch.autograd.Function):
             dL_dout_normal,
             dL_dout_T,
 
-            raster_settings.lambda_N_concen,
             raster_settings.lambda_R_concen,
             raster_settings.gt_color,
+            raster_settings.lambda_ascending,
             raster_settings.lambda_dist,
             raster_settings.need_depth,
             raster_settings.need_normal,

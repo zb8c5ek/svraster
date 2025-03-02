@@ -155,8 +155,11 @@ def training(args):
         tr_render_opt['output_normal'] = need_nd_loss or need_nmed_loss
         tr_render_opt['output_depth'] = need_sparse_depth or need_nd_loss or need_nmed_loss
 
-        if iteration >= cfg.regularizer.dist_from and cfg.regularizer.lambda_dist and 'lambda_dist' not in tr_render_opt:
+        if iteration >= cfg.regularizer.dist_from and cfg.regularizer.lambda_dist:
             tr_render_opt['lambda_dist'] = cfg.regularizer.lambda_dist
+
+        if iteration >= cfg.regularizer.ascending_from and cfg.regularizer.lambda_ascending:
+            tr_render_opt['lambda_ascending'] = cfg.regularizer.lambda_ascending
 
         # Update auto exposure
         if cfg.auto_exposure.enable and iteration in cfg.procedure.auto_exposure_upd_ckpt:

@@ -45,9 +45,9 @@ rasterize_voxels_backward(
     const torch::Tensor& dL_dout_normal,
     const torch::Tensor& dL_dout_T,
 
-    const float lambda_N_concen,
     const float lambda_R_concen,
     const torch::Tensor& gt_color,
+    const float lambda_ascending,
     const float lambda_dist,
     const bool need_depth,
     const bool need_normal,

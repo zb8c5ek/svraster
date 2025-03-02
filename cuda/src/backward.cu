@@ -59,9 +59,9 @@ renderCUDA(
     const float* __restrict__ dL_dout_normal,
     const float* __restrict__ dL_dout_T,
 
-    const float lambda_N_concen,
     const float lambda_R_concen,
     const float* gt_color,
+    const float lambda_ascending,
     const float lambda_dist,
     const float* out_D,
     const float* out_N,
@@ -181,8 +181,8 @@ renderCUDA(
 
     // Compute regularization weights.
     const float WH_inv = 1.f / ((float)(W * H));
-    const float weight_N_concen = lambda_N_concen * WH_inv;
     const float weight_R_concen = lambda_R_concen * WH_inv;
+    const float weight_ascending = lambda_ascending * WH_inv;
     float3 gt_pix;
     if (lambda_R_concen > 0 && inside)
     {
@@ -384,7 +384,7 @@ renderCUDA(
                 float3 dL_dsurf_n = pt_w * dL_dN;
 
                 // Gradient from normal concentration loss
-                dL_dsurf_n = dL_dsurf_n + weight_N_concen * pt_w * (1.f - dot(surf_n, pix_n)) * (-pix_n);
+                // dL_dsurf_n = dL_dsurf_n + weight_N_concen * pt_w * (1.f - dot(surf_n, pix_n)) * (-pix_n);
 
                 // To be added later
                 float3 dL_dlin_n = r_lin * (dL_dsurf_n - dot(dL_dsurf_n, lin_n) * r_lin * surf_n);
@@ -472,6 +472,30 @@ renderCUDA(
                     for (int iii=0; iii<8; ++iii)
                         dL_dgeo_params[iii] += dLdepth_dI[0] * dI_dgeo_params[iii];
                 }
+            }
+
+            if (lambda_ascending > 0)
+            {
+                const float3 pt_a = ro + a * rd;
+                const float3 qt_a = (pt_a - (vox_c - 0.5f * vox_l)) * vox_l_inv;
+                const float3 pt_b = ro + b * rd;
+                const float3 qt_b = (pt_b - (vox_c - 0.5f * vox_l)) * vox_l_inv;
+
+                float interp_w_a[8], interp_w_b[8];
+                tri_interp_weight(qt_a, interp_w_a);
+                tri_interp_weight(qt_b, interp_w_b);
+
+                float d_a = 0.f, d_b = 0.f;
+                for (int iii=0; iii<8; ++iii)
+                {
+                    d_a += geo_params[iii] * interp_w_a[iii];
+                    d_b += geo_params[iii] * interp_w_b[iii];
+                }
+
+                // L = max(0, d_a - d_b)
+                const float reg_w = weight_ascending * pt_w * static_cast<float>(d_a > d_b);
+                for (int iii=0; iii<8; ++iii)
+                    dL_dgeo_params[iii] += reg_w * (interp_w_a[iii] - interp_w_b[iii]);
             }
 
             /**************************
@@ -572,9 +596,9 @@ void render(
     const float* dL_dout_normal,
     const float* dL_dout_T,
 
-    const float lambda_N_concen,
     const float lambda_R_concen,
     const float* gt_color,
+    const float lambda_ascending,
     const float lambda_dist,
     const bool need_depth,
     const bool need_normal,
@@ -617,9 +641,9 @@ void render(
         dL_dout_normal,
         dL_dout_T,
 
-        lambda_N_concen,
         lambda_R_concen,
         gt_color,
+        lambda_ascending,
         lambda_dist,
         out_D,
         out_N,
@@ -657,9 +681,9 @@ rasterize_voxels_backward(
     const torch::Tensor& dL_dout_normal,
     const torch::Tensor& dL_dout_T,
 
-    const float lambda_N_concen,
     const float lambda_R_concen,
     const torch::Tensor& gt_color,
+    const float lambda_ascending,
     const float lambda_dist,
     const bool need_depth,
     const bool need_normal,
@@ -728,9 +752,9 @@ rasterize_voxels_backward(
         dL_dout_normal.contiguous().data_ptr<float>(),
         dL_dout_T.contiguous().data_ptr<float>(),
 
-        lambda_N_concen,
         lambda_R_concen,
         gt_color.contiguous().data_ptr<float>(),
+        lambda_ascending,
         lambda_dist,
         need_depth,
         need_normal,
