@@ -154,6 +154,9 @@ cfg.procedure = CfgNode(dict(
     sche_mult = 1.0,
     seed=3721,
 
+    # Reset sh
+    reset_sh_ckpt = [-1],
+
     # Adaptive voxel pruning
     prune_from = 1000,
     prune_every = 1000,

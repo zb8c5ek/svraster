@@ -10,6 +10,8 @@ import torch
 import svraster_cuda
 
 from src.utils import octree_utils
+from src.utils.fuser_utils import rgb_fusion
+from src.utils.activation_utils import rgb2shzero
 
 class SVProperties:
 
@@ -80,3 +82,8 @@ class SVProperties:
                 self.grid_pts_key, self.scene_center, self.scene_extent)
             self._grid_pts_xyz_signature = signature
         return self._grid_pts_xyz
+
+    @torch.no_grad()
+    def reset_sh_from_cameras(self, cameras):
+        self._sh0.data.copy_(rgb2shzero(rgb_fusion(self, cameras)))
+        self._shs.data.zero_()

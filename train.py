@@ -141,6 +141,13 @@ def training(args):
         if iteration % 1000 == 0:
             voxel_model.sh_degree_add1()
 
+        # Recompute sh from cameras
+        if iteration in cfg.procedure.reset_sh_ckpt:
+            print("Reset sh0 from cameras.")
+            print("Reset shs to zero.")
+            voxel_model.reset_sh_from_cameras(tr_cams)
+            torch.cuda.empty_cache()
+
         # Use default super-sampling option
         if iteration > 1000:
             if cfg.regularizer.ss_aug_max > 1:
@@ -575,6 +582,9 @@ if __name__ == "__main__":
                 'prune_from', 'prune_every', 'prune_until',
                 'subdivide_from', 'subdivide_every', 'subdivide_until']:
             cfg.procedure[key] = round(cfg.procedure[key] * sche_mult)
+        cfg.procedure.reset_sh_ckpt = [
+            round(v * sche_mult) if v > 0 else v
+            for v in cfg.procedure.reset_sh_ckpt]
 
     # Update negative iterations
     for i in range(len(args.test_iterations)):

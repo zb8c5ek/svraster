@@ -69,23 +69,28 @@ class Fuser:
             align_corners=False).flatten()
         valid_xyz_depth = (valid_xyz - cam.position) @ cam.lookat
         valid_sdf = valid_frame_depth - valid_xyz_depth
-        
+
+        if torch.is_tensor(self.bandwidth):
+            bandwidth = self.bandwidth[valid_idx]
+        else:
+            bandwidth = self.bandwidth
+
+        valid_sdf *= (1 / bandwidth)
+
         if self.use_trunc:
             # Filter occluded
-            filter_idx = torch.where(valid_sdf >= -self.bandwidth)[0]
+            filter_idx = torch.where(valid_sdf >= -1)[0]
             valid_idx = valid_idx[filter_idx]
             valid_uv = valid_uv[filter_idx]
             valid_frame_depth = valid_frame_depth[filter_idx]
             valid_sdf = valid_sdf[filter_idx]
+            valid_sdf = valid_sdf.clamp_(-1, 1)
 
             # Init weighting
             w = torch.ones_like(valid_frame_depth)
         else:
-            norm_dist = (1 / self.bandwidth) * valid_sdf.abs()
+            norm_dist = valid_sdf.abs()
             w = torch.exp(-norm_dist.clamp_max(self.max_norm_dist))
-
-        # Truncation & normalization
-        valid_sdf = (valid_sdf / self.bandwidth).clamp(-1, 1)
 
         # Alpha filtering
         if alpha is not None:
@@ -149,3 +154,31 @@ class Fuser:
     @property
     def tsdf(self):
         return self.sd_val / self.weight
+
+
+@torch.no_grad()
+def rgb_fusion(voxel_model, cameras):
+
+    from .octree_utils import level_2_vox_size
+
+    # Define volume integrator
+    finest_vox_size = level_2_vox_size(voxel_model.scene_extent, voxel_model.octlevel.max()).item()
+    feat_volume = Fuser(
+        xyz=voxel_model.vox_center,
+        bandwidth=10 * finest_vox_size,
+        use_trunc=False,
+        fuse_tsdf=False,
+        feat_dim=3,
+        crop_border=0.,
+        normal_weight=False,
+        depth_weight=False,
+        border_weight=False,
+        use_half=True)
+
+    # Run semantic maps fusion
+    for cam in cameras:
+        render_pkg = voxel_model.render(cam, color_mode="dontcare", output_depth=True)
+        depth = render_pkg['depth'][2]
+        feat_volume.integrate(cam=cam, feat=cam.image.cuda(), depth=depth)
+
+    return feat_volume.feature.nan_to_num_(0.5).float()
