@@ -70,45 +70,47 @@ def render_set(name, iteration, suffix, args, views, voxel_model):
             mse = (rendering.clip(0,1) - gt.clip(0,1)).square().mean()
             psnr = -10 * torch.log10(mse)
             psnr_lst.append(psnr.item())
+            fname = view.image_name
+
             # RGB
             imageio.imwrite(
-                os.path.join(render_path, '{0:05d}'.format(idx) + (".jpg" if args.use_jpg else ".png")),
+                os.path.join(render_path, fname + (".jpg" if args.use_jpg else ".png")),
                 im_tensor2np(rendering)
             )
             if args.rgb_only:
                 continue
             imageio.imwrite(
-                os.path.join(gts_path, '{0:05d}'.format(idx) + ".png"),
+                os.path.join(gts_path, fname + ".png"),
                 im_tensor2np(gt)
             )
             # Alpha
             imageio.imwrite(
-                os.path.join(alpha_path, '{0:05d}'.format(idx) + ".alpha.jpg"),
+                os.path.join(alpha_path, fname + ".alpha.jpg"),
                 im_tensor2np(1-render_pkg['T'])[...,None].repeat(3, axis=-1)
             )
             # Depth
             imageio.imwrite(
-                os.path.join(viz_path, '{0:05d}'.format(idx) + ".depth_med_viz.jpg"),
+                os.path.join(viz_path, fname + ".depth_med_viz.jpg"),
                 viz_tensordepth(render_pkg['depth'][2])
             )
             imageio.imwrite(
-                os.path.join(viz_path, '{0:05d}'.format(idx) + ".depth_viz.jpg"),
+                os.path.join(viz_path, fname + ".depth_viz.jpg"),
                 viz_tensordepth(render_pkg['depth'][0], 1-render_pkg['T'][0])
             )
             # Normal
             depth_med2normal = view.depth2normal(render_pkg['depth'][2])
             depth2normal = view.depth2normal(render_pkg['depth'][0])
             imageio.imwrite(
-                os.path.join(viz_path, '{0:05d}'.format(idx) + ".depth_med2normal.jpg"),
+                os.path.join(viz_path, fname + ".depth_med2normal.jpg"),
                 im_tensor2np(depth_med2normal * 0.5 + 0.5)
             )
             imageio.imwrite(
-                os.path.join(viz_path, '{0:05d}'.format(idx) + ".depth2normal.jpg"),
+                os.path.join(viz_path, fname + ".depth2normal.jpg"),
                 im_tensor2np(depth2normal * 0.5 + 0.5)
             )
             render_normal = render_pkg['normal']
             imageio.imwrite(
-                os.path.join(viz_path, '{0:05d}'.format(idx) + ".normal.jpg"),
+                os.path.join(viz_path, fname + ".normal.jpg"),
                 im_tensor2np(render_normal * 0.5 + 0.5)
             )
     torch.cuda.synchronize()
