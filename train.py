@@ -472,11 +472,11 @@ def training_report(data_pack, voxel_model, iteration, loss, psnr, elapsed, ema_
             gt = im_tensor2np(camera.image)
             video.append(im)
             if idx % save_every == 0:
-                outpath = os.path.join(outdir, f"idx{idx:04d}_iter{iteration:06d}.png")
+                outpath = os.path.join(outdir, f"idx{idx:04d}_iter{iteration:06d}.jpg")
                 cat = np.concatenate([gt, im], axis=1)
                 imageio.imwrite(outpath, cat)
 
-                outpath = os.path.join(outdir, f"idx{idx:04d}_iter{iteration:06d}_normal.png")
+                outpath = os.path.join(outdir, f"idx{idx:04d}_iter{iteration:06d}_normal.jpg")
                 render_normal = render_pkg['normal']
                 render_normal = im_tensor2np(render_normal * 0.5 + 0.5)
                 imageio.imwrite(outpath, render_normal)
@@ -506,11 +506,11 @@ def training_report(data_pack, voxel_model, iteration, loss, psnr, elapsed, ema_
             render_image = render_pkg['color']
             im = im_tensor2np(render_image)
             gt = im_tensor2np(camera.image)
-            outpath = os.path.join(outdir, f"train_idx{idx:04d}_iter{iteration:06d}.png")
+            outpath = os.path.join(outdir, f"train_idx{idx:04d}_iter{iteration:06d}.jpg")
             cat = np.concatenate([gt, im], axis=1)
             imageio.imwrite(outpath, cat)
 
-            outpath = os.path.join(outdir, f"train_idx{idx:04d}_iter{iteration:06d}_normal.png")
+            outpath = os.path.join(outdir, f"train_idx{idx:04d}_iter{iteration:06d}_normal.jpg")
             render_normal = render_pkg['normal']
             render_normal = im_tensor2np(render_normal * 0.5 + 0.5)
             imageio.imwrite(outpath, render_normal)
