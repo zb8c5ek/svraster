@@ -60,9 +60,14 @@ For scenes with background masked out, use `--white_background` or `--black_back
 
 Other hyperparameter suggestions:
 - `--lambda_normal_dmean 0.001 --lambda_normal_dmed 0.001` for a better geometry.
+    - Please also cite [2dgs](https://arxiv.org/abs/2403.17888) if you use this in your research.
 - `--lambda_T_inside 0.01` to encourage rays to stop inside the Octree. Useful for real-world scenes.
 - `--lambda_T_concen 0.1` to encourage transmittance to be either 0 or 1. Useful for object centric scenes with background masked out.
 - `--lambda_sparse_depth 0.01` to use sparse depth loss from COLMAP points. It's helpful for regions with less observed angles.
+    - Please also cite [dsnerf](https://arxiv.org/abs/2107.02791) if you use this in your research.
+- `--lambda_depthanythingv2 0.1` to use depthanythingv2 as guidance to rendered depth.
+    - It uses the huggingface version. It automatically saves the estimated depth map for the first time you using this loss.
+    - Please also cite [depthanythingv2](https://arxiv.org/abs/2406.09414) and [midas](https://arxiv.org/abs/1907.01341) if you use this in your research.
 - `--save_quantized` to apply 8 bits quantization to the saved checkpoints. It typically reduce ~70% model size with minor quality difference.
 
 ### Measuring FPS
