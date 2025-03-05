@@ -35,6 +35,7 @@ from src.config import cfg, update_argparser, update_config
 from src.utils.system_utils import seed_everything
 from src.utils.image_utils import im_tensor2np, viz_tensordepth
 from src.utils.bounding_utils import decide_main_bounding
+from src.utils import mono_utils
 from src.utils import loss_utils
 
 from src.dataloader.data_pack import DataPack, compute_iter_idx
@@ -54,6 +55,13 @@ def training(args):
     if cfg.auto_exposure.enable:
         for cam in tr_cams:
             cam.auto_exposure_init()
+
+    # Prepare monocular depth priors if instructed
+    if cfg.regularizer.lambda_depthanythingv2:
+        mono_utils.prepare_depthanythingv2(
+            cameras=tr_cams,
+            source_path=cfg.data.source_path,
+            force_rerun=False)
 
     # Decide main (inside) region bounding box
     bounding = decide_main_bounding(
@@ -119,6 +127,10 @@ def training(args):
 
     sparse_depth_loss = loss_utils.SparseDepthLoss(
         iter_end=cfg.regularizer.sparse_depth_until)
+    depthanythingv2_loss = loss_utils.DepthAnythingv2Loss(
+        iter_from=cfg.regularizer.depthanythingv2_from,
+        iter_end=cfg.regularizer.depthanythingv2_end,
+        end_mult=cfg.regularizer.depthanythingv2_end_mult)
     nd_loss = loss_utils.NormalDepthConsistencyLoss(
         iter_from=cfg.regularizer.n_dmean_from,
         iter_end=cfg.regularizer.n_dmean_end,
@@ -156,11 +168,12 @@ def training(args):
                 tr_render_opt.pop('ss')  # Use default ss
 
         need_sparse_depth = cfg.regularizer.lambda_sparse_depth > 0 and sparse_depth_loss.is_active(iteration)
+        need_depthanythingv2 = cfg.regularizer.lambda_depthanythingv2 > 0 and depthanythingv2_loss.is_active(iteration)
         need_nd_loss = cfg.regularizer.lambda_normal_dmean > 0 and nd_loss.is_active(iteration)
         need_nmed_loss = cfg.regularizer.lambda_normal_dmed > 0 and nmed_loss.is_active(iteration)
-        tr_render_opt['output_T'] = cfg.regularizer.lambda_T_concen > 0 or cfg.regularizer.lambda_T_inside > 0 or cfg.regularizer.lambda_mask > 0 or need_sparse_depth or need_nd_loss
+        tr_render_opt['output_T'] = cfg.regularizer.lambda_T_concen > 0 or cfg.regularizer.lambda_T_inside > 0 or cfg.regularizer.lambda_mask > 0 or need_sparse_depth or need_nd_loss or need_depthanythingv2
         tr_render_opt['output_normal'] = need_nd_loss or need_nmed_loss
-        tr_render_opt['output_depth'] = need_sparse_depth or need_nd_loss or need_nmed_loss
+        tr_render_opt['output_depth'] = need_sparse_depth or need_nd_loss or need_nmed_loss or need_depthanythingv2
 
         if iteration >= cfg.regularizer.dist_from and cfg.regularizer.lambda_dist:
             tr_render_opt['lambda_dist'] = cfg.regularizer.lambda_dist
@@ -204,6 +217,9 @@ def training(args):
         if cfg.regularizer.lambda_mask:
             gt_T = 1 - cam.mask.cuda()
             loss += cfg.regularizer.lambda_mask * loss_utils.l2_loss(render_pkg['T'], gt_T)
+
+        if need_depthanythingv2:
+            loss += cfg.regularizer.lambda_depthanythingv2 * depthanythingv2_loss(cam, render_pkg, iteration)
 
         if cfg.regularizer.lambda_ssim:
             loss += cfg.regularizer.lambda_ssim * loss_utils.fast_ssim_loss(render_image, gt_image)
@@ -574,7 +590,8 @@ if __name__ == "__main__":
         for key in [
                 'dist_from', 'tv_from', 'tv_until',
                 'n_dmean_from', 'n_dmean_end',
-                'n_dmed_from', 'n_dmed_end']:
+                'n_dmed_from', 'n_dmed_end',
+                'depthanythingv2_from', 'depthanythingv2_end']:
             cfg.regularizer[key] = round(cfg.regularizer[key] * sche_mult)
 
         for key in [

@@ -83,6 +83,12 @@ cfg.regularizer = CfgNode(dict(
     # Mask loss
     lambda_mask = 0.0,
 
+    # Depthanything loss
+    lambda_depthanythingv2 = 0.0,
+    depthanythingv2_from = 3000,
+    depthanythingv2_end = 20000,
+    depthanythingv2_end_mult = 0.1,
+
     # Final transmittance should concentrate to either 0 or 1
     lambda_T_concen = 0.0,
 

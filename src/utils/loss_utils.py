@@ -112,6 +112,53 @@ class SparseDepthLoss:
         return torch.nn.functional.smooth_l1_loss(rend_sparse_depth, sparse_depth)
 
 
+class DepthAnythingv2Loss:
+    def __init__(self, iter_from, iter_end, end_mult):
+        self.iter_from = iter_from
+        self.iter_end = iter_end
+        self.end_mult = end_mult
+
+    def is_active(self, iteration):
+        return iteration >= self.iter_from and iteration <= self.iter_end
+
+    def __call__(self, cam, render_pkg, iteration):
+        assert hasattr(cam, "depthanthingv2"), "Estimated depth not loaded"
+        assert "raw_T" in render_pkg, "Forgot to set `output_depth=True` when calling render?"
+        assert "raw_depth" in render_pkg, "Forgot to set `output_depth=True` when calling render?"
+
+        if not self.is_active(iteration):
+            return 0
+
+        invdepth = 1 / render_pkg['raw_depth'].unsqueeze(1).clamp_min(cam.near)
+        alpha = (1 - render_pkg['raw_T'][None])
+        mono = cam.depthanthingv2.cuda()
+        mono = mono[None,None]
+
+        if invdepth.shape[-2:] != mono.shape[-2:]:
+            mono = torch.nn.functional.interpolate(
+                mono, size=invdepth.shape[-2:], mode='bilinear')
+
+        X, _, Xref = invdepth.split(1)
+        X = X * alpha
+        Y = mono
+
+        with torch.no_grad():
+            Ymed = Y.median()
+            Ys = (Y - Ymed).abs().mean()
+            Xmed = Xref.median()
+            Xs = (Xref - Xmed).abs().mean()
+            target = (Y - Ymed) * (Xs/Ys) + Xmed
+
+        mask = (target > 0.01) & (alpha > 0.5)
+        X = X * mask
+        target = target * mask
+        loss = l2_loss(X, target)
+
+        ratio = (iteration - self.iter_from) / (self.iter_end - self.iter_from)
+        mult = self.end_mult ** ratio
+        return mult * loss
+
+
 class NormalDepthConsistencyLoss:
     def __init__(self, iter_from, iter_end, ks, tol_deg):
         self.iter_from = iter_from
