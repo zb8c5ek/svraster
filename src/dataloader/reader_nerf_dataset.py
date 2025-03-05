@@ -81,8 +81,11 @@ def read_a_camera(frame, fovx, fovy, cx_p, cy_p, path, extension, points=None, c
         mask = None
 
     # Load sparse point
-    key = f"{image_name}.{extension}"
-    sparse_pt = points[correspondent[key]]
+    if points is not None:
+        key = f"{image_name}.{extension}"
+        sparse_pt = points[correspondent[key]]
+    else:
+        sparse_pt = None
 
     return CameraInfo(
         image_name=image_name,
@@ -126,6 +129,8 @@ def read_nerf_dataset(path, extension, test_every, eval):
             colors=colors,
             normals=normals,
             ply_path=ply_path)
+    else:
+        points = None
 
     cor_path = os.path.join(path, "points_correspondent.json")
     if os.path.exists(cor_path):
