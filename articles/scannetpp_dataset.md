@@ -32,4 +32,5 @@ The normal of the density field should not pointing toward the camera side. It i
 
 **Sparse point depth loss.**
 It's not used in the submitted version. On the public set, it improves geometry qualitatively and novel-view results quantitatively.
+
 <img width="700" alt="scannet++ benchmark" src="https://github.com/user-attachments/assets/33b9f955-425d-490f-8e9e-0183957522f6" />
