@@ -9,6 +9,8 @@
 We propose an efficient radiance field rendering algorithm that incorporates a rasterization process on adaptive sparse voxels without neural networks or 3D Gaussians. There are two key contributions coupled with the proposed system. The first is to adaptively and explicitly allocate sparse voxels to different levels of detail within scenes, faithfully reproducing scene details with 65536^3 grid resolution while achieving high rendering frame rates. Second, we customize a rasterizer for efficient adaptive sparse voxels rendering. We render voxels in the correct depth order by using ray direction-dependent Morton ordering, which avoids the well-known popping artifact found in Gaussian splatting. Our method improves the previous neural-free voxel model by over 4db PSNR and more than 10x FPS speedup, achieving state-of-the-art comparable novel-view synthesis results. Additionally, our voxel representation is seamlessly compatible with grid-based 3D processing techniques such as Volume Fusion, Voxel Pooling, and Marching Cubes, enabling a wide range of future extensions and applications.
 </details>
 
+**Updates:**
+- Mar 8, 2025: Support ScanNet++ dataset. Check the [benchmark](https://kaldir.vc.in.tum.de/scannetpp/benchmark/nvs) for our results on the 3rd-party hidden set evaluation. Our [short article](./articles/scannetpp_dataset.md) may be helpful if you want to work on scannet or indoor environement.
 
 ## Install
 1. Install Pytorch first. The tested versions are `1.13.1+cu117` and `2.5.0+cu124`.
