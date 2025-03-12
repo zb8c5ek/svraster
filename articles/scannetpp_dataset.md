@@ -7,7 +7,7 @@ https://github.com/user-attachments/assets/85f55a12-b4bb-4581-924e-925a38f6a748
 
 More results information (averaged on 50 scenes):
 - Per-scene optimization time: `12 mins`.
-- FPS: `197` at `1752 x 1168` image resolution.
+- FPS: `197` at `1752 x 1168` image resolution. As we use `ss=1.5`, the actual rendering resolution is `2628 x 1752`.
 - Voxel size distribution:
     | <3mm | 3mm-5mm | 5mm-1cm | 1cm-2cm | 2cm-3cm | >3cm | 
     | :-: | :-: | :-: | :-: | :-: | :-: |
@@ -25,12 +25,12 @@ The config file is provided in `cfg/scannetpp.yaml`. We detail the setting as fo
 As this is a fully indoor dataset, we set `outside_level` to zero and assume the entire scene is inside the main scene bound. The world center is set to the centroid of training cameras and the scene radius is set to two times the maximum distance from world center to the cameras.
 
 **SH reset trick.**
-We find the view-dependent color from SH is not generalized well so we implement a trick by resetting the sh component near the end of optimization. This trick improve quality on the view "extrapolation" task like ScanNet++ dataset, while it slightly reduces quality on view "interpolation" task like mipnerf360.t
+We find the view-dependent color from SH is not generalized well so we implement a trick by resetting the sh component near the end of optimization. This trick improve quality on the view "extrapolation" task like ScanNet++ dataset, while it slightly reduces quality on view "interpolation" task like mipnerf360.
 
 **Density ascending regularizer.**
-The normal of the density field should not pointing toward the camera side. It improve geometry and slightly improve quality.
+It encourages the derived normal from the density field to point toward the camera side. It improves geometry qualitatively and slightly improve quantitative result.
 
 **Sparse point depth loss.**
 It's not used in the submitted version. On the public set, it improves geometry qualitatively and novel-view results quantitatively.
 
-<img width="700" alt="scannet++ benchmark" src="https://github.com/user-attachments/assets/33b9f955-425d-490f-8e9e-0183957522f6" />
+<img width="512" alt="scannet++ benchmark" src="https://github.com/user-attachments/assets/33b9f955-425d-490f-8e9e-0183957522f6" />
