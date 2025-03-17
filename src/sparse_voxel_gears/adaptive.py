@@ -19,7 +19,7 @@ There are three types of data mode to tackle.
    Each voxel has it's own non-trainable data field.
 
 2. Per-voxel parameters:
-   Similar to per-voxel attribute but we have to process the Adam optimizer state as well.
+   Similar to per-voxel attribute but these are trainable parameters.
 
 3. Grid points parameters:
    The trainable parameters are attached to the eight grid points of each voxel.
@@ -29,25 +29,30 @@ There are three types of data mode to tackle.
 class SVAdaptive:
 
     @torch.no_grad()
-    def pruning(self, prune_mask):
+    def pruning(self, prune_mask, renew_states=True):
         '''
         Prune sparse voxels.
         The grid points and the optimizer are updated accordingly.
         Input:
             @prune_mask      [N] Mask indicating the voxels to prune.
+            @renew_states    Set to false if you want to renew optimizer in other place.
         '''
         kept_idx = (~prune_mask).argwhere().squeeze(1)
+        self.clear_optimizer_states()
         self._prune_attr(kept_idx)
         self._prune_voxel_parameters(kept_idx)
         self._prune_grid_pts_parameters(kept_idx)
+        self.renew_optimizer_states()
 
     @torch.no_grad()
-    def subdividing(self, subdivide_mask, save_gpu=False):
+    def subdividing(self, subdivide_mask, save_gpu=False, renew_states=True):
         '''
         Prune sparse voxels.
         The grid points and the optimizer are updated accordingly.
         Input:
             @subdivide_mask  [N] Mask indicating the voxels to subdivide.
+            @save_gpu        Set to true if you want to save some GPU memory.
+            @renew_states    Set to false if you want to renew optimizer in other place.
         '''
         # Compute voxel index to keep and to subdivided
         if len(subdivide_mask.shape) == 2:
@@ -56,9 +61,11 @@ class SVAdaptive:
         subdivide_idx = subdivide_mask.argwhere().squeeze(1)
 
         # Subdivided the selected voxels into their eight octants
+        self.clear_optimizer_states()
         self._subdivide_attr(kept_idx, subdivide_idx)
         self._subdivide_voxel_parameters(kept_idx, subdivide_idx)
         self._subdivide_grid_pts_parameters(kept_idx, subdivide_idx, save_gpu=save_gpu)
+        self.renew_optimizer_states()
 
     @torch.no_grad()
     def sh_degree_add1(self):
@@ -98,6 +105,32 @@ class SVAdaptive:
         }
         self.unfreeze_vox_geo()
         return stat_pkg
+
+    @torch.no_grad()
+    def clear_optimizer_states(self):
+        if not hasattr(self, 'optimizer'):
+            return
+        for name in self.per_voxel_param_lst + self.grid_pts_param_lst:
+            param = getattr(self, name)
+            del self.optimizer.state[param]
+            torch.cuda.empty_cache()
+
+    @torch.no_grad()
+    def renew_optimizer_states(self):
+        if not hasattr(self, 'optimizer'):
+            return
+        lookup = {
+            group['name']: idx
+            for idx, group in enumerate(self.optimizer.param_groups)
+        }
+        for name in self.per_voxel_param_lst + self.grid_pts_param_lst:
+            # WARNING: may cause error if a param is never optimized.
+            group_idx = lookup[name]
+            new_param = getattr(self, name)
+            assert len(self.optimizer.param_groups[group_idx]['params']) == 1
+            self.optimizer.param_groups[group_idx]['params'][0] = new_param
+            self.optimizer.state[new_param] = {}
+            torch.cuda.empty_cache()
 
     #################################################
     # The following are the low-level functions for
@@ -164,24 +197,10 @@ class SVAdaptive:
         Input:
             @kept_idx: the voxels to be kept.
         '''
-        # Shortcut to access and manipulate optimizer
-        if hasattr(self, 'optimizer'):
-            state = self.optimizer.state
-            param_groups = self.optimizer.param_groups
-            lookup = {
-                group['name']: idx
-                for idx, group in enumerate(param_groups)
-            }
-        else:
-            state = None
 
         # Update voxel trainable parameters
         for name in self.per_voxel_param_lst:
-            param = getattr(self, name)
-            if state is not None:
-                state_dict = state.pop(param)
-            ori_param = param.detach()
-            del param
+            ori_param = getattr(self, name).detach()
             torch.cuda.empty_cache()
 
             # Update parameter
@@ -189,26 +208,7 @@ class SVAdaptive:
                 ori_param,
                 kept_idx=kept_idx).requires_grad_()
             setattr(self, name, new_param)
-            del ori_param
-            torch.cuda.empty_cache()
-
-            # Update optimizer
-            if state is not None:
-                # WARNING: Cause error if a param is never optimized.
-                assert len(param_groups[lookup[name]]['params']) == 1
-                param_groups[lookup[name]]['params'][0] = new_param
-
-                for k in self.state_attr_names:
-                    ori_state = state_dict[k]
-                    state_dict[k] = mask_cat_perm(
-                        ori_state,
-                        kept_idx=kept_idx)
-                    assert state_dict[k].shape == new_param.shape
-                    del ori_state
-                    torch.cuda.empty_cache()
-                state[new_param] = state_dict
-
-            del new_param
+            del ori_param, new_param
             torch.cuda.empty_cache()
 
     @torch.no_grad()
@@ -219,20 +219,10 @@ class SVAdaptive:
             @kept_idx: the voxels to be kept.
             @subdivide_idx: the voxels to be subdivided.
         '''
-        # Shortcut to access and manipulate optimizer
-        state = self.optimizer.state
-        param_groups = self.optimizer.param_groups
-        lookup = {
-            group['name']: idx
-            for idx, group in enumerate(param_groups)
-        }
 
         # Update voxel trainable parameters
         for name in self.per_voxel_param_lst:
-            param = getattr(self, name)
-            state_dict = state.pop(param)
-            ori_param = param.detach()
-            del param
+            ori_param = getattr(self, name).detach()
             torch.cuda.empty_cache()
 
             # Update parameter
@@ -242,49 +232,19 @@ class SVAdaptive:
                 kept_idx=kept_idx,
                 cat_tensor=subdiv_param).requires_grad_()
             setattr(self, name, new_param)
-            del ori_param, subdiv_param
-            torch.cuda.empty_cache()
-
-            # Update optimizer
-            # WARNING: error if a param is never optimized.
-            assert len(param_groups[lookup[name]]['params']) == 1
-            param_groups[lookup[name]]['params'][0] = new_param
-
-            for k in self.state_attr_names:
-                ori_state = state_dict[k]
-                subdiv_state = ori_state[subdivide_idx].repeat_interleave(8, dim=0)
-                state_dict[k] = mask_cat_perm(
-                    ori_state,
-                    kept_idx=kept_idx,
-                    cat_tensor=subdiv_state)
-                assert state_dict[k].shape == new_param.shape
-                del ori_state, subdiv_state
-                torch.cuda.empty_cache()
-            state[new_param] = state_dict
-
-            del new_param
+            del ori_param, subdiv_param, new_param
             torch.cuda.empty_cache()
 
     @torch.no_grad()
     def _prune_grid_pts_parameters(self, kept_idx):
         '''
         Prune trainable grid_pts parameters.
-        NOTE: This function assume per-voxel attributes are updated.
+        NOTE: This function assume per-voxel attributes are already updated.
         Input:
             @kept_idx: the voxels to be kept.
         '''
-        # Shortcut to access and manipulate optimizer
-        if hasattr(self, 'optimizer'):
-            state = self.optimizer.state
-            param_groups = self.optimizer.param_groups
-            lookup = {
-                group['name']: idx
-                for idx, group in enumerate(param_groups)
-            }
-        else:
-            state = None
 
-        # Assume per-voxel attribute is updated.
+        # Assume per-voxel attributes are already updated.
         # Re-build the link between voxel and grid_pts.
         old_vox_key = self.vox_key.clone()
         new_grid_pts_key, new_vox_key = octree_utils.build_grid_pts_link(self.octpath, self.octlevel)
@@ -293,11 +253,7 @@ class SVAdaptive:
 
         # Update grid_pts parameters from voxel
         for name in self.grid_pts_param_lst:
-            param = getattr(self, name)
-            if state is not None:
-                state_dict = state.pop(param)
-            ori_grid_pts = param.detach()
-            del param
+            ori_grid_pts = getattr(self, name).detach()
             torch.cuda.empty_cache()
 
             # Update parameter
@@ -310,52 +266,20 @@ class SVAdaptive:
                 new_vox_key,
                 new_vox_val).requires_grad_()
             setattr(self, name, new_param)
-            del ori_grid_pts, ori_vox_grid_pts_val, new_vox_val
-            torch.cuda.empty_cache()
-
-            # Update optimizer
-            if state is not None:
-                # WARNING: error if a param is never optimized.
-                assert len(param_groups[lookup[name]]['params']) == 1
-                param_groups[lookup[name]]['params'][0] = new_param
-
-                for k in self.state_attr_names:
-                    ori_grid_pts_state = state_dict[k]
-                    ori_vox_grid_pts_state = ori_grid_pts_state[old_vox_key]
-                    new_vox_state = mask_cat_perm(
-                        ori_vox_grid_pts_state,
-                        kept_idx=kept_idx)
-                    new_state = agg_voxel_into_grid_pts(
-                        new_num_grid_pts,
-                        new_vox_key,
-                        new_vox_state)
-                    state_dict[k] = new_state
-                    assert new_state.shape == new_param.shape
-                    del ori_grid_pts_state, ori_vox_grid_pts_state, new_vox_state, new_state
-                    torch.cuda.empty_cache()
-                state[new_param] = state_dict
-
-            del new_param
+            del ori_grid_pts, ori_vox_grid_pts_val, new_vox_val, new_param
             torch.cuda.empty_cache()
 
     @torch.no_grad()
-    def _subdivide_grid_pts_parameters(self, kept_idx, subdivide_idx, save_gpu=False):
+    def _subdivide_grid_pts_parameters(self, kept_idx, subdivide_idx, save_gpu=False, reset_optim=False):
         '''
         Subdivide trainable grid_pts parameters.
-        NOTE: This function assume per-voxel attributes are updated.
+        NOTE: This function assume per-voxel attributes are already updated.
         Input:
             @kept_idx: the voxels to be kept.
             @subdivide_idx: the voxels to be subdivided.
         '''
-        # Shortcut to access and manipulate optimizer
-        state = self.optimizer.state
-        param_groups = self.optimizer.param_groups
-        lookup = {
-            group['name']: idx
-            for idx, group in enumerate(param_groups)
-        }
 
-        # Assume per-voxel attribute is updated.
+        # Assume per-voxel attributes are already updated.
         # Re-build the link between voxel and grid_pts.
         old_vox_key = self.vox_key.clone()
         new_grid_pts_key, new_vox_key = octree_utils.build_grid_pts_link(self.octpath, self.octlevel)
@@ -369,12 +293,9 @@ class SVAdaptive:
 
         # Update grid points parameters from voxel
         for name in self.grid_pts_param_lst:
-            param = getattr(self, name)
-            state_dict = state.pop(param)
-            ori_grid_pts = param.detach()
+            ori_grid_pts = getattr(self, name).detach()
             if save_gpu:
                 ori_grid_pts = ori_grid_pts.cpu()
-            del param
             torch.cuda.empty_cache()
 
             # Update parameter
@@ -396,40 +317,7 @@ class SVAdaptive:
                 new_vox_key,
                 new_vox_val).cuda().requires_grad_()
             setattr(self, name, new_param)
-            del new_vox_val
-            torch.cuda.empty_cache()
-
-            # Update optimizer
-            # We do the same thing as parameter update.
-            # WARNING: error if a param is never optimized.
-            assert len(param_groups[lookup[name]]['params']) == 1
-            param_groups[lookup[name]]['params'][0] = new_param
-
-            for k in self.state_attr_names:
-                ori_grid_pts_state = state_dict[k]
-                if save_gpu:
-                    ori_grid_pts_state = ori_grid_pts_state.cpu()
-                ori_vox_grid_pts_state = ori_grid_pts_state[old_vox_key]
-                subdiv_vox_grid_pts_state = subdivide_by_interp(
-                    ori_vox_grid_pts_state[subdivide_idx])
-                new_vox_state = mask_cat_perm(
-                    ori_vox_grid_pts_state,
-                    kept_idx=kept_idx,
-                    cat_tensor=subdiv_vox_grid_pts_state)
-                del ori_grid_pts_state, ori_vox_grid_pts_state, subdiv_vox_grid_pts_state
-                torch.cuda.empty_cache()
-
-                new_state = agg_voxel_into_grid_pts(
-                    new_num_grid_pts,
-                    new_vox_key,
-                    new_vox_state)
-                state_dict[k] = new_state.cuda()
-                assert new_state.shape == new_param.shape
-                del new_vox_state
-                torch.cuda.empty_cache()
-            state[new_param] = state_dict
-
-            del new_param
+            del new_vox_val, new_param
             torch.cuda.empty_cache()
 
 

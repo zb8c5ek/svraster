@@ -523,6 +523,7 @@ def training_report(data_pack, voxel_model, iteration, loss, psnr, elapsed, ema_
         with open(outpath, 'w') as f:
             q = torch.linspace(0,1,5, device="cuda")
             max_w_q = max_w.quantile(q).tolist()
+            peak_mem = torch.cuda.memory_stats()["allocated_bytes.all.peak"] / 1024 ** 3
             stat = {
                 'psnr': avg_psnr,
                 'ema_psnr': ema_psnr,
@@ -530,6 +531,7 @@ def training_report(data_pack, voxel_model, iteration, loss, psnr, elapsed, ema_
                 'fps': fps,
                 'n_voxels': voxel_model.num_voxels,
                 'max_w_q': max_w_q,
+                'peak_mem': peak_mem,
             }
             json.dump(stat, f, indent=4)
 
