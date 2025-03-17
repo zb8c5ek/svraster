@@ -122,8 +122,11 @@ We can fuse 2D vision foundation feature or sementic segmentation results into v
     - [Mip-NeRF360 dataset](https://jonbarron.info/mipnerf360/)
     - [T&T and DeepBlending dataset](https://github.com/graphdeco-inria/gaussian-splatting#running)
     - [Synthetic NeRF dataset](https://www.matthewtancik.com/nerf/)
+    - [Scannet++ dataset](https://kaldir.vc.in.tum.de/scannetpp/)
+        - Check [scripts/scannetpp_preproc.py](./scripts/scannetpp_preproc.py) for pre-processing.
 - Mesh reconstruction
     - [DTU dataset](https://github.com/Totoro97/NeuS)
+        - Check [scripts/dtu_preproc.py](./scripts/dtu_preproc.py) for pre-processing.
     - [Tanks&Temples dataset](https://github.com/hbb1/2d-gaussian-splatting)
 
 ### Running base setup
