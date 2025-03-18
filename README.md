@@ -10,6 +10,7 @@ We propose an efficient radiance field rendering algorithm that incorporates a r
 </details>
 
 **Updates:**
+- Mar 18, 2025: Revise literature review. Support depthanythingv2 relative depth loss and mast3r metric depth loss for a better geometry.
 - Mar 8, 2025: Support ScanNet++ dataset. Check the [benchmark](https://kaldir.vc.in.tum.de/scannetpp/benchmark/nvs) for our results on the 3rd-party hidden set evaluation. Our [short article](./articles/scannetpp_dataset.md) may be helpful if you want to work on scannet or indoor environement.
 
 ## Install
@@ -61,15 +62,24 @@ Like InstantNGP and other NeRF variants, defining a proper main scene bounding b
 For scenes with background masked out, use `--white_background` or `--black_background` to specify the background color.
 
 Other hyperparameter suggestions:
-- `--lambda_normal_dmean 0.001 --lambda_normal_dmed 0.001` for a better geometry.
-    - Please also cite [2dgs](https://arxiv.org/abs/2403.17888) if you use this in your research.
-- `--lambda_T_inside 0.01` to encourage rays to stop inside the Octree. Useful for real-world scenes.
-- `--lambda_T_concen 0.1` to encourage transmittance to be either 0 or 1. Useful for object centric scenes with background masked out.
-- `--lambda_sparse_depth 0.01` to use sparse depth loss from COLMAP points. It's helpful for regions with less observed angles.
-    - Please also cite [dsnerf](https://arxiv.org/abs/2107.02791) if you use this in your research.
-- `--lambda_depthanythingv2 0.1` to use depthanythingv2 as guidance to rendered depth.
-    - It uses the huggingface version. It automatically saves the estimated depth map for the first time you using this loss.
-    - Please also cite [depthanythingv2](https://arxiv.org/abs/2406.09414) and [midas](https://arxiv.org/abs/1907.01341) if you use this in your research.
+- Ray termination
+    - `--lambda_T_inside 0.01` to encourage rays to stop inside the Octree. Useful for real-world scenes.
+    - `--lambda_T_concen 0.1` to encourage transmittance to be either 0 or 1. Useful for scenes whose background pixels are set to white or black. Remember to set either `--white_background` or `--black_background` in this case.
+- Geometry
+    - `--lambda_normal_dmean 0.001 --lambda_normal_dmed 0.001` to encourage self-consistency between rendered depth and normal.
+        - Also cite [2dgs](https://arxiv.org/abs/2403.17888) if you use this in your research.
+    - `--lambda_ascending 0.01` to encourage density to be increasing along ray direction.
+    - `--lambda_sparse_depth 0.01` to use COLMAP sparse points loss to guide rendered depth.
+        - Also cite [dsnerf](https://arxiv.org/abs/2107.02791) if you use this in your research.
+    - `--lambda_depthanythingv2 0.1` to use depthanythingv2 loss to guide rendered depth.
+        - It uses the huggingface version.
+        - It automatically saves the estimated depth map at the first time you activate this loss for the scene.
+        - Also cite [depthanythingv2](https://arxiv.org/abs/2406.09414) and [midas](https://arxiv.org/abs/1907.01341) if you use this in your research.
+    - `--lambda_mast3r_metric_depth 0.1` to use the metric depth derived from MASt3R to guide the rendered depth.
+        - You need to clone MASt3R and install all its dependency.
+        - You also need to set `--mast3r_repo_path {abs_path_to_mast3r_repo}`.
+        - It automatically saves the estimated depth map at the first time you activate this loss for the scene.
+        - Also cite [MASt3R](https://arxiv.org/abs/2406.09756) and [DUSt3R](https://arxiv.org/abs/2312.14132) if you use this in your research.
 - `--save_quantized` to apply 8 bits quantization to the saved checkpoints. It typically reduce ~70% model size with minor quality difference.
 
 ### Measuring FPS
