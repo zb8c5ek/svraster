@@ -607,7 +607,8 @@ if __name__ == "__main__":
                 'dist_from', 'tv_from', 'tv_until',
                 'n_dmean_from', 'n_dmean_end',
                 'n_dmed_from', 'n_dmed_end',
-                'depthanythingv2_from', 'depthanythingv2_end']:
+                'depthanythingv2_from', 'depthanythingv2_end',
+                'mast3r_metric_depth_from', 'mast3r_metric_depth_end']:
             cfg.regularizer[key] = round(cfg.regularizer[key] * sche_mult)
 
         for key in [

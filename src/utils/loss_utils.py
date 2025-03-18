@@ -197,7 +197,7 @@ class Mast3rMetricDepthLoss:
             #     ref, size=depth.shape[-2:], mode='bilinear')
 
         # Compute cauchy loss
-        active_idx = torch.where(alpha > 0.01)
+        active_idx = torch.where(alpha > 0.5)
         depth = depth / alpha
         loss = cauchy_loss(depth[active_idx], ref[active_idx], reduction='sum')
         loss = loss * (1 / depth.numel())
