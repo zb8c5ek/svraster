@@ -63,6 +63,12 @@ def training(args):
             source_path=cfg.data.source_path,
             force_rerun=False)
 
+    if cfg.regularizer.lambda_mast3r_metric_depth:
+        mono_utils.prepare_mast3r_metric_depth(
+            cameras=tr_cams,
+            source_path=cfg.data.source_path,
+            mast3r_repo_path=cfg.regularizer.mast3r_repo_path)
+
     # Decide main (inside) region bounding box
     bounding = decide_main_bounding(
         cfg_bounding=cfg.bounding,
@@ -131,6 +137,10 @@ def training(args):
         iter_from=cfg.regularizer.depthanythingv2_from,
         iter_end=cfg.regularizer.depthanythingv2_end,
         end_mult=cfg.regularizer.depthanythingv2_end_mult)
+    mast3r_metric_depth_loss = loss_utils.Mast3rMetricDepthLoss(
+        iter_from=cfg.regularizer.mast3r_metric_depth_from,
+        iter_end=cfg.regularizer.mast3r_metric_depth_end,
+        end_mult=cfg.regularizer.mast3r_metric_depth_end_mult)
     nd_loss = loss_utils.NormalDepthConsistencyLoss(
         iter_from=cfg.regularizer.n_dmean_from,
         iter_end=cfg.regularizer.n_dmean_end,
@@ -169,11 +179,12 @@ def training(args):
 
         need_sparse_depth = cfg.regularizer.lambda_sparse_depth > 0 and sparse_depth_loss.is_active(iteration)
         need_depthanythingv2 = cfg.regularizer.lambda_depthanythingv2 > 0 and depthanythingv2_loss.is_active(iteration)
+        need_mast3r_metric_depth = cfg.regularizer.lambda_mast3r_metric_depth > 0 and mast3r_metric_depth_loss.is_active(iteration)
         need_nd_loss = cfg.regularizer.lambda_normal_dmean > 0 and nd_loss.is_active(iteration)
         need_nmed_loss = cfg.regularizer.lambda_normal_dmed > 0 and nmed_loss.is_active(iteration)
-        tr_render_opt['output_T'] = cfg.regularizer.lambda_T_concen > 0 or cfg.regularizer.lambda_T_inside > 0 or cfg.regularizer.lambda_mask > 0 or need_sparse_depth or need_nd_loss or need_depthanythingv2
+        tr_render_opt['output_T'] = cfg.regularizer.lambda_T_concen > 0 or cfg.regularizer.lambda_T_inside > 0 or cfg.regularizer.lambda_mask > 0 or need_sparse_depth or need_nd_loss or need_depthanythingv2 or need_mast3r_metric_depth
         tr_render_opt['output_normal'] = need_nd_loss or need_nmed_loss
-        tr_render_opt['output_depth'] = need_sparse_depth or need_nd_loss or need_nmed_loss or need_depthanythingv2
+        tr_render_opt['output_depth'] = need_sparse_depth or need_nd_loss or need_nmed_loss or need_depthanythingv2 or need_mast3r_metric_depth
 
         if iteration >= cfg.regularizer.dist_from and cfg.regularizer.lambda_dist:
             tr_render_opt['lambda_dist'] = cfg.regularizer.lambda_dist
@@ -220,6 +231,9 @@ def training(args):
 
         if need_depthanythingv2:
             loss += cfg.regularizer.lambda_depthanythingv2 * depthanythingv2_loss(cam, render_pkg, iteration)
+
+        if need_mast3r_metric_depth:
+            loss += cfg.regularizer.lambda_mast3r_metric_depth * mast3r_metric_depth_loss(cam, render_pkg, iteration)
 
         if cfg.regularizer.lambda_ssim:
             loss += cfg.regularizer.lambda_ssim * loss_utils.fast_ssim_loss(render_image, gt_image)

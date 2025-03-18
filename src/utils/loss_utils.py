@@ -32,6 +32,14 @@ def huber_loss(x, y, thres=0.01):
         2 * thres * l1 - thres ** 2)
     return loss.mean()
 
+def cauchy_loss(x, y, reduction='mean'):
+    loss_map = torch.log1p(torch.square(x - y))
+    if reduction == 'sum':
+        return loss_map.sum()
+    if reduction == 'mean':
+        return loss_map.mean()
+    raise NotImplementedError
+
 def psnr_score(x, y):
     return -10 * torch.log10(l2_loss(x, y))
 
@@ -122,7 +130,7 @@ class DepthAnythingv2Loss:
         return iteration >= self.iter_from and iteration <= self.iter_end
 
     def __call__(self, cam, render_pkg, iteration):
-        assert hasattr(cam, "depthanthingv2"), "Estimated depth not loaded"
+        assert hasattr(cam, "depthanythingv2"), "Estimated depth not loaded"
         assert "raw_T" in render_pkg, "Forgot to set `output_depth=True` when calling render?"
         assert "raw_depth" in render_pkg, "Forgot to set `output_depth=True` when calling render?"
 
@@ -131,7 +139,7 @@ class DepthAnythingv2Loss:
 
         invdepth = 1 / render_pkg['raw_depth'].unsqueeze(1).clamp_min(cam.near)
         alpha = (1 - render_pkg['raw_T'][None])
-        mono = cam.depthanthingv2.cuda()
+        mono = cam.depthanythingv2.cuda()
         mono = mono[None,None]
 
         if invdepth.shape[-2:] != mono.shape[-2:]:
@@ -153,6 +161,46 @@ class DepthAnythingv2Loss:
         X = X * mask
         target = target * mask
         loss = l2_loss(X, target)
+
+        ratio = (iteration - self.iter_from) / (self.iter_end - self.iter_from)
+        mult = self.end_mult ** ratio
+        return mult * loss
+
+
+class Mast3rMetricDepthLoss:
+    def __init__(self, iter_from, iter_end, end_mult):
+        self.iter_from = iter_from
+        self.iter_end = iter_end
+        self.end_mult = end_mult
+
+    def is_active(self, iteration):
+        return iteration >= self.iter_from and iteration <= self.iter_end
+
+    def __call__(self, cam, render_pkg, iteration):
+        assert hasattr(cam, "mast3r_metric_depth"), "Estimated depth not loaded"
+        assert "raw_T" in render_pkg, "Forgot to set `output_depth=True` when calling render?"
+        assert "raw_depth" in render_pkg, "Forgot to set `output_depth=True` when calling render?"
+
+        if not self.is_active(iteration):
+            return 0
+
+        alpha = (1 - render_pkg['raw_T'][None])
+        depth = render_pkg['raw_depth'][[0]][None]
+        ref = cam.mast3r_metric_depth[None,None].cuda()
+
+        if depth.shape[-2:] != ref.shape[-2:]:
+            alpha = torch.nn.functional.interpolate(
+                alpha, size=ref.shape[-2:], mode='bilinear', antialias=True)
+            depth = torch.nn.functional.interpolate(
+                depth, size=ref.shape[-2:], mode='bilinear', antialias=True)
+            # ref = torch.nn.functional.interpolate(
+            #     ref, size=depth.shape[-2:], mode='bilinear')
+
+        # Compute cauchy loss
+        active_idx = torch.where(alpha > 0.01)
+        depth = depth / alpha
+        loss = cauchy_loss(depth[active_idx], ref[active_idx], reduction='sum')
+        loss = loss * (1 / depth.numel())
 
         ratio = (iteration - self.iter_from) / (self.iter_end - self.iter_from)
         mult = self.end_mult ** ratio

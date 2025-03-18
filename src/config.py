@@ -89,6 +89,13 @@ cfg.regularizer = CfgNode(dict(
     depthanythingv2_end = 20000,
     depthanythingv2_end_mult = 0.1,
 
+    # Mast3r metrid loss
+    lambda_mast3r_metric_depth = 0.0,
+    mast3r_repo_path = '',
+    mast3r_metric_depth_from = 0,
+    mast3r_metric_depth_end = 20000,
+    mast3r_metric_depth_end_mult = 0.01,
+
     # Final transmittance should concentrate to either 0 or 1
     lambda_T_concen = 0.0,
 
